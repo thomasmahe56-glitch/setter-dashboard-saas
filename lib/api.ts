@@ -105,6 +105,11 @@ export const api = {
     }),
   ignorePending: (id: string) =>
     apiFetch(`/conversations/${id}/ignore-pending`, { method: "POST" }),
+  refineMessage: (id: string, instruction: string, original_message: string) =>
+    apiFetch<{ refined_message: string }>(`/conversations/${id}/refine-pending`, {
+      method: "POST",
+      body: JSON.stringify({ instruction, original_message }),
+    }),
   activate: (id: string) =>
     apiFetch(`/conversations/${id}/activate`, { method: "POST" }),
   deactivate: (id: string) =>

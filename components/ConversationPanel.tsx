@@ -44,6 +44,10 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
   const [activating, setActivating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [modeChanging, setModeChanging] = useState(false);
+  const [refineOpen, setRefineOpen] = useState(false);
+  const [refineInstruction, setRefineInstruction] = useState("");
+  const [refining, setRefining] = useState(false);
+  const [refineError, setRefineError] = useState<string | null>(null);
 
   const history = Array.isArray(c.history) ? c.history : [];
   const name = c.display_name || c.username || "?";
@@ -95,6 +99,21 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
     await navigator.clipboard.writeText(c.pending_message);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function handleRefine() {
+    if (!refineInstruction.trim() || !c.pending_message) return;
+    setRefining(true);
+    setRefineError(null);
+    try {
+      const result = await api.refineMessage(c.id, refineInstruction.trim(), c.pending_message);
+      onUpdate(c.id, { pending_message: result.refined_message });
+      setRefineInstruction("");
+      setRefineOpen(false);
+    } catch {
+      setRefineError("Angelos n'a pas pu affiner le message. Réessaie.");
+    }
+    setRefining(false);
   }
 
   return (
@@ -263,30 +282,105 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
           <p style={{ fontSize: 13, color: "#0a0a0a", margin: "0 0 10px", lineHeight: 1.5 }}>
             {c.pending_message}
           </p>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={handleCopyPending} style={{
-              display: "flex", alignItems: "center", gap: 5,
-              padding: "5px 12px", borderRadius: 9999, fontSize: 12, fontWeight: 600,
-              background: copied ? "#f0fdf4" : "#fff",
-              border: `1px solid ${copied ? "#bbf7d0" : "#e0e0e0"}`,
-              color: copied ? "#16a34a" : "#262626",
-              cursor: "pointer", transition: "all 0.15s",
-            }}>
-              {copied ? <Check size={12} /> : <Copy size={12} />}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={handleCopyPending}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "6px 14px", borderRadius: 9999,
+                background: copied ? "#f0fdf4" : "#0095F6",
+                border: copied ? "1px solid #bbf7d0" : "none",
+                color: copied ? "#16a34a" : "#fff",
+                fontSize: 12, fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              {copied ? <Check size={13} /> : <Copy size={13} />}
               {copied ? "Copié !" : "Copier"}
             </button>
             {instagramHandle && (
-              <a href={`https://instagram.com/${instagramHandle}`} target="_blank" rel="noreferrer" style={{
-                display: "flex", alignItems: "center", gap: 5,
-                padding: "5px 12px", borderRadius: 9999, fontSize: 12, fontWeight: 600,
-                background: "#fff", border: "1px solid #e0e0e0", color: "#262626",
-                textDecoration: "none", transition: "all 0.15s",
-              }}>
-                <ExternalLink size={12} />
-                Instagram
+              <a
+                href={`https://ig.me/m/${instagramHandle}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "6px 14px", borderRadius: 9999,
+                  background: "linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)",
+                  color: "#fff", fontSize: 12, fontWeight: 600,
+                  textDecoration: "none",
+                }}
+              >
+                <ExternalLink size={13} />
+                Ouvrir Instagram
               </a>
             )}
+            <button
+              type="button"
+              onClick={() => { setRefineOpen(!refineOpen); setRefineError(null); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "6px 14px", borderRadius: 9999,
+                background: refineOpen ? "#f5f3ff" : "transparent",
+                border: `1px solid ${refineOpen ? "#a78bfa" : "#e0e0e0"}`,
+                color: refineOpen ? "#7c3aed" : "#8e8e8e",
+                fontSize: 12, fontWeight: 500, cursor: "pointer",
+              }}
+            >
+              ✨ Demander à Angelos d&apos;affiner
+            </button>
+            <button
+              type="button"
+              onClick={handleIgnorePending}
+              style={{
+                padding: "6px 14px", borderRadius: 9999,
+                background: "transparent", border: "1px solid #e0e0e0",
+                color: "#8e8e8e", fontSize: 12, fontWeight: 500, cursor: "pointer",
+              }}
+            >
+              Ignorer
+            </button>
           </div>
+
+          {refineOpen && (
+            <div style={{ marginTop: 10 }}>
+              <textarea
+                value={refineInstruction}
+                onChange={(e) => setRefineInstruction(e.target.value)}
+                placeholder='Ex : "Rends-le plus chaleureux", "Il a mentionné une blessure, intègre ça", "Trop long, raccourcis"'
+                rows={2}
+                style={{
+                  width: "100%", padding: "8px 12px",
+                  borderRadius: 10, border: "1px solid #e0e0e0",
+                  fontSize: 12, lineHeight: 1.5, resize: "none",
+                  outline: "none", boxSizing: "border-box",
+                  fontFamily: "inherit",
+                }}
+              />
+              {refineError && (
+                <div style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>
+                  {refineError}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleRefine}
+                disabled={refining || !refineInstruction.trim()}
+                style={{
+                  marginTop: 8,
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "7px 16px", borderRadius: 9999,
+                  background: refining || !refineInstruction.trim() ? "#e0e0e0" : "#7c3aed",
+                  border: "none", color: "#fff",
+                  fontSize: 12, fontWeight: 600,
+                  cursor: refining || !refineInstruction.trim() ? "not-allowed" : "pointer",
+                }}
+              >
+                {refining ? <Loader2 size={13} className="animate-spin" /> : "✨"}
+                {refining ? "Angelos affine..." : "Affiner le message"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

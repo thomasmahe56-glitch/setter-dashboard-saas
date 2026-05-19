@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { Check, Clock3, Copy, ExternalLink, Loader2, Send, Sparkles } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
 import { Avatar } from "@/components/Avatar";
@@ -36,7 +37,9 @@ export default function RelancePage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!localStorage.getItem("dashboard_secret")) router.replace("/login");
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) router.replace("/login");
+    });
   }, [router]);
 
   const refresh = useCallback(async () => {
@@ -47,7 +50,7 @@ export default function RelancePage() {
       setLastRefresh(new Date());
     } catch (e: unknown) {
       if (e instanceof Error && e.message === "UNAUTHORIZED") {
-        localStorage.removeItem("dashboard_secret");
+        await supabase.auth.signOut();
         window.location.href = "/login";
       } else {
         setError("Erreur de connexion");

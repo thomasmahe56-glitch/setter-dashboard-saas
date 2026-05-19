@@ -1,6 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { Users, MessageCircle, Send, Phone, Award, TrendingUp } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
 import { NavBar } from "@/components/NavBar";
@@ -43,7 +44,9 @@ export default function KPIPage() {
   const { conversations, loading, error, lastRefresh, refresh } = useConversations();
 
   useEffect(() => {
-    if (!localStorage.getItem("dashboard_secret")) router.replace("/login");
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) router.replace("/login");
+    });
   }, [router]);
 
   const total = conversations.length;

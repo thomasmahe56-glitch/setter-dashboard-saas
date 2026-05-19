@@ -23,19 +23,16 @@ interface PreviewDiffLine { line: string; type: "add" | "remove" | "keep"; justi
 interface PreviewResult { prompt_proposed: string; diff: PreviewDiffLine[] }
 
 import { config as appConfig } from "@/lib/config";
+import { getAccessToken } from "@/lib/supabase";
 const RAILWAY_URL = appConfig.apiUrl;
 
-function getSecret(): string {
-  if (typeof window === "undefined") return "";
-  return localStorage.getItem("dashboard_secret") || "";
-}
-
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = await getAccessToken();
   const res = await fetch(`${RAILWAY_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      "x-dashboard-secret": getSecret(),
+      "Authorization": `Bearer ${token}`,
       ...(options.headers || {}),
     },
   });
@@ -597,7 +594,11 @@ export default function InsightsPage() {
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!localStorage.getItem("dashboard_secret")) router.replace("/login");
+    import("@/lib/supabase").then(({ supabase }) => {
+      supabase.auth.getSession().then(({ data }) => {
+        if (!data.session) router.replace("/login");
+      });
+    });
   }, [router]);
 
   const fetchInsights = useCallback(async () => {

@@ -1,18 +1,15 @@
 import { config } from "@/lib/config";
+import { getAccessToken } from "@/lib/supabase";
+
 const RAILWAY_URL = config.apiUrl;
 
-function getSecret(): string {
-  if (typeof window === "undefined") return "";
-  return localStorage.getItem("dashboard_secret") || "";
-}
-
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const secret = getSecret();
+  const token = await getAccessToken();
   const res = await fetch(`${RAILWAY_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      "x-dashboard-secret": secret,
+      "Authorization": `Bearer ${token}`,
       ...(options.headers || {}),
     },
   });
@@ -126,4 +123,9 @@ export const api = {
     apiFetch<FollowUpSendResult>(`/follow-ups/${conversationId}/send-auto-23h`, {
       method: "POST",
     }),
+  logout: async () => {
+    const { supabase } = await import("@/lib/supabase");
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  },
 };

@@ -11,19 +11,16 @@ interface PromptVersion { id: string; created_at: string; is_active: boolean; so
 interface AgentLinks { calendly_url: string; sales_page_url: string }
 
 import { config as appConfig } from "@/lib/config";
+import { getAccessToken } from "@/lib/supabase";
 const RAILWAY_URL = appConfig.apiUrl;
 
-function getSecret(): string {
-  if (typeof window === "undefined") return "";
-  return localStorage.getItem("dashboard_secret") || "";
-}
-
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = await getAccessToken();
   const res = await fetch(`${RAILWAY_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      "x-dashboard-secret": getSecret(),
+      "Authorization": `Bearer ${token}`,
       ...(options.headers || {}),
     },
   });
@@ -89,7 +86,11 @@ export default function AgentPage() {
   const [versionToast, setVersionToast] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!localStorage.getItem("dashboard_secret")) router.replace("/login");
+    import("@/lib/supabase").then(({ supabase }) => {
+      supabase.auth.getSession().then(({ data }) => {
+        if (!data.session) router.replace("/login");
+      });
+    });
   }, [router]);
 
   useEffect(() => {

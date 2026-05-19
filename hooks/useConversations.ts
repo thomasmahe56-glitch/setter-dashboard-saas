@@ -16,7 +16,8 @@ export function useConversations() {
       setLastRefresh(new Date());
     } catch (e: unknown) {
       if (e instanceof Error && e.message === "UNAUTHORIZED") {
-        localStorage.removeItem("dashboard_secret");
+        const { supabase } = await import("@/lib/supabase");
+        await supabase.auth.signOut();
         window.location.href = "/login";
       } else {
         setError("Erreur de connexion");

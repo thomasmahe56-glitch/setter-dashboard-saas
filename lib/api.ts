@@ -47,6 +47,9 @@ export interface ConversationSummary {
   avatar_url?: string | null;
   history?: HistoryMessage[];
   subscriber_id?: string;
+  automation_mode?: "auto" | "supervised" | "disabled";
+  pending_message?: string | null;
+  pending_message_at?: string | null;
 }
 
 export type Conversation = ConversationSummary & {
@@ -95,6 +98,13 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ status }),
     }),
+  updateAutomationMode: (id: string, mode: "auto" | "supervised" | "disabled") =>
+    apiFetch(`/conversations/${id}/automation-mode`, {
+      method: "PATCH",
+      body: JSON.stringify({ automation_mode: mode }),
+    }),
+  ignorePending: (id: string) =>
+    apiFetch(`/conversations/${id}/ignore-pending`, { method: "POST" }),
   activate: (id: string) =>
     apiFetch(`/conversations/${id}/activate`, { method: "POST" }),
   deactivate: (id: string) =>

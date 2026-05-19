@@ -95,10 +95,16 @@ export function ProspectList({ conversations, selectedId, onSelect }: Props) {
                 )}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#0a0a0a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {name}
-                  </span>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2, alignItems: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#0a0a0a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {name}
+                    </span>
+                    <span style={{
+                      width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+                      background: (c.automation_mode ?? "supervised") === "auto" ? "#22c55e" : (c.automation_mode ?? "supervised") === "supervised" ? "#f59e0b" : "#d1d5db",
+                    }} />
+                  </div>
                   <span style={{ fontSize: 11, color: "#8e8e8e", flexShrink: 0, marginLeft: 8 }}>
                     {timeAgo(c.created_at)}
                   </span>

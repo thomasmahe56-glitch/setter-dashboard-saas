@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { ExternalLink, Trash2, ChevronDown, ArrowLeft, Zap, Sparkles, Loader2 } from "lucide-react";
+import { ExternalLink, Trash2, ChevronDown, ArrowLeft, Zap, Sparkles, Loader2, Copy, Check } from "lucide-react";
 import { ConversationSummary, Status, api } from "@/lib/api";
 import { getInstagramHandle, STATUS_LABELS } from "@/lib/utils";
 import { Avatar } from "./Avatar";
@@ -42,6 +42,8 @@ function MessageSkeleton() {
 export function ConversationPanel({ conversation: c, loadingDetails = false, detailError = null, onBack, onUpdate, onDelete }: Props) {
   const [statusOpen, setStatusOpen] = useState(false);
   const [activating, setActivating] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [modeChanging, setModeChanging] = useState(false);
 
   const history = Array.isArray(c.history) ? c.history : [];
   const name = c.display_name || c.username || "?";
@@ -71,6 +73,28 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
   async function handleDelete() {
     if (!confirm(`Supprimer ${name} ?`)) return;
     try { await api.delete(c.id); onDelete(c.id); } catch {}
+  }
+
+  async function handleModeChange(mode: "auto" | "supervised" | "disabled") {
+    setModeChanging(true);
+    const prev = c.automation_mode;
+    onUpdate(c.id, { automation_mode: mode });
+    try { await api.updateAutomationMode(c.id, mode); } catch { onUpdate(c.id, { automation_mode: prev }); }
+    setModeChanging(false);
+  }
+
+  async function handleIgnorePending() {
+    const prevMsg = c.pending_message;
+    const prevAt = c.pending_message_at;
+    onUpdate(c.id, { pending_message: null, pending_message_at: null });
+    try { await api.ignorePending(c.id); } catch { onUpdate(c.id, { pending_message: prevMsg, pending_message_at: prevAt }); }
+  }
+
+  async function handleCopyPending() {
+    if (!c.pending_message) return;
+    await navigator.clipboard.writeText(c.pending_message);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
@@ -178,6 +202,36 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
         </div>
       </div>
 
+      {/* Mode selector */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 6,
+        padding: "6px 24px", borderBottom: "1px solid #f5f5f5",
+        background: "#fafafa", flexShrink: 0,
+      }}>
+        <span style={{ fontSize: 11, color: "#8e8e8e", fontWeight: 500, marginRight: 2 }}>Mode :</span>
+        {(["auto", "supervised", "disabled"] as const).map((mode) => {
+          const isActive = (c.automation_mode ?? "supervised") === mode;
+          const col = {
+            auto: { activeBg: "#16a34a", activeColor: "#fff", idleBg: "#f0fdf4", idleColor: "#16a34a" },
+            supervised: { activeBg: "#d97706", activeColor: "#fff", idleBg: "#fffbeb", idleColor: "#d97706" },
+            disabled: { activeBg: "#6b7280", activeColor: "#fff", idleBg: "#f5f5f5", idleColor: "#6b7280" },
+          }[mode];
+          const label = { auto: "Auto", supervised: "Supervisé", disabled: "Off" }[mode];
+          return (
+            <button key={mode} onClick={() => handleModeChange(mode)} disabled={modeChanging} style={{
+              padding: "3px 10px", borderRadius: 9999, fontSize: 11, fontWeight: 600, border: "none",
+              background: isActive ? col.activeBg : col.idleBg,
+              color: isActive ? col.activeColor : col.idleColor,
+              cursor: modeChanging ? "not-allowed" : "pointer",
+              opacity: modeChanging ? 0.6 : 1,
+              transition: "all 0.15s",
+            }}>
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Agent banner */}
       {c.agent_active && (
         <div style={{
@@ -189,6 +243,50 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
         }}>
           <Sparkles size={14} color="#0095F6" />
           Agent IA actif — réponses automatiques en cours
+        </div>
+      )}
+
+      {/* Pending message banner */}
+      {c.pending_message && (
+        <div style={{
+          margin: "12px 24px 0", padding: "12px 16px", borderRadius: 16,
+          background: "#fffbeb", border: "1px solid #fde68a", flexShrink: 0,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#d97706", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Message en attente
+            </span>
+            <button onClick={handleIgnorePending} style={{ fontSize: 11, color: "#8e8e8e", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+              Ignorer
+            </button>
+          </div>
+          <p style={{ fontSize: 13, color: "#0a0a0a", margin: "0 0 10px", lineHeight: 1.5 }}>
+            {c.pending_message}
+          </p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={handleCopyPending} style={{
+              display: "flex", alignItems: "center", gap: 5,
+              padding: "5px 12px", borderRadius: 9999, fontSize: 12, fontWeight: 600,
+              background: copied ? "#f0fdf4" : "#fff",
+              border: `1px solid ${copied ? "#bbf7d0" : "#e0e0e0"}`,
+              color: copied ? "#16a34a" : "#262626",
+              cursor: "pointer", transition: "all 0.15s",
+            }}>
+              {copied ? <Check size={12} /> : <Copy size={12} />}
+              {copied ? "Copié !" : "Copier"}
+            </button>
+            {instagramHandle && (
+              <a href={`https://instagram.com/${instagramHandle}`} target="_blank" rel="noreferrer" style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "5px 12px", borderRadius: 9999, fontSize: 12, fontWeight: 600,
+                background: "#fff", border: "1px solid #e0e0e0", color: "#262626",
+                textDecoration: "none", transition: "all 0.15s",
+              }}>
+                <ExternalLink size={12} />
+                Instagram
+              </a>
+            )}
+          </div>
         </div>
       )}
 

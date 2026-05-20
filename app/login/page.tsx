@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { config as appConfig } from "@/lib/config";
 import { createClient } from "@/lib/supabase/client";
+import { AngelosAvatar } from "@/components/AngelosAvatar";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -50,16 +51,8 @@ export default function LoginPage() {
       <div style={{ width: "100%", maxWidth: 400 }}>
 
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{
-            width: 64, height: 64, borderRadius: 20,
-            background: "#0095F6",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            margin: "0 auto 16px",
-            boxShadow: "0 8px 32px rgba(0,149,246,0.25)",
-          }}>
-            <span style={{ color: "#fff", fontWeight: 800, fontSize: 28 }}>
-              {appConfig.agentName.charAt(0)}
-            </span>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+            <AngelosAvatar size={72} radius={20} shadow="0 8px 32px rgba(0,149,246,0.18)" />
           </div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 6px" }}>
             {appConfig.agentName}

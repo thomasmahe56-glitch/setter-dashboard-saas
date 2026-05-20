@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { config } from "@/lib/config";
+import { AngelosAvatar } from "@/components/AngelosAvatar";
 import { createClient } from "@/lib/supabase/client";
 
 const TABS = [
@@ -57,22 +58,7 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
       }}
     >
       <div style={{ height: 64, display: "flex", alignItems: "center", padding: "0 16px", gap: 12 }}>
-        <div
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 10,
-            background: "#0095F6",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          <span style={{ color: "#fff", fontWeight: 800, fontSize: 16 }}>
-            {config.agentName.charAt(0)}
-          </span>
-        </div>
+        <AngelosAvatar size={40} radius={10} />
         {open && (
           <span
             style={{

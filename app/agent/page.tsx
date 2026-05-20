@@ -514,19 +514,45 @@ export default function AgentPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#fafafa", paddingLeft: 72 }}>
       <NavBar />
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px 16px" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "28px 20px 40px" }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto" }}>
 
-          {/* Header */}
-          <div style={{ marginBottom: 20 }}>
-            <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 4px" }}>Agent</h1>
-            <p style={{ fontSize: 13, color: "#8e8e8e", margin: 0 }}>
-              Tu joues le rôle du prospect. L'agent répond avec le prompt actif.
-            </p>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "1.4fr repeat(3, minmax(150px, 1fr))",
+            gap: 14,
+            alignItems: "stretch",
+            marginBottom: 18,
+          }}>
+            <div style={{ ...card, padding: 24, justifyContent: "center" }}>
+              <p style={{ fontSize: 12, fontWeight: 800, color: "#0095F6", margin: "0 0 8px", textTransform: "uppercase", letterSpacing: 0 }}>
+                Agent Studio
+              </p>
+              <h1 style={{ fontSize: 28, fontWeight: 850, color: "#0a0a0a", margin: "0 0 8px" }}>
+                Configurer Angelos
+              </h1>
+              <p style={{ fontSize: 13, color: "#7a7a7a", margin: 0, lineHeight: 1.5, maxWidth: 520 }}>
+                Renseigne le business, la voix du coach et les règles commerciales, puis teste Angelos comme si tu étais un prospect.
+              </p>
+            </div>
+            {[
+              { label: "Profil", value: profileLoading ? "..." : Object.values(profile).filter((v) => v.trim()).length, help: "champs remplis" },
+              { label: "Test", value: messages.length, help: "messages simulés" },
+              { label: "Versions", value: promptVersions.length, help: "prompts publiés" },
+            ].map((item) => (
+              <div key={item.label} style={{ ...card, padding: 18, justifyContent: "center" }}>
+                <p style={{ fontSize: 12, color: "#8e8e8e", margin: "0 0 10px", fontWeight: 650 }}>{item.label}</p>
+                <p style={{ fontSize: 28, color: "#0a0a0a", margin: "0 0 4px", fontWeight: 850 }}>{item.value}</p>
+                <p style={{ fontSize: 12, color: "#8e8e8e", margin: 0 }}>{item.help}</p>
+              </div>
+            ))}
           </div>
 
-          {/* Two-column grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+          <div style={{ marginBottom: 16 }}>
+            {agentProfileCard}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.1fr) minmax(340px, 0.9fr)", gap: 16, alignItems: "start" }}>
 
             {/* ── LEFT : Conversation de test ── */}
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -658,14 +684,11 @@ export default function AgentPage() {
               </div>
             </div>
 
-            {agentProfileCard}
-            {agentLinksCard}
             </div>
 
-            {/* ── RIGHT : Recommandations ── */}
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {agentLinksCard}
 
-              {/* Observations */}
               <div style={{ ...card, padding: 20 }}>
                 <p style={{ ...sectionTitle, marginBottom: 10 }}>Tes observations</p>
                 <textarea

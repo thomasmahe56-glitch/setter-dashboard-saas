@@ -29,7 +29,12 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: sessionData, error } = await supabase.auth.signInWithPassword({ email, password });
+    console.log("Auth result:", JSON.stringify({
+      hasSession: !!sessionData?.session,
+      hasUser: !!sessionData?.session?.user,
+      error: error?.message
+    }));
     if (error) {
       setError("Email ou mot de passe incorrect");
       setLoading(false);

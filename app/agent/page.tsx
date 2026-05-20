@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { RotateCcw, Send, Loader2, Zap } from "lucide-react";
+import { Briefcase, Link2, Loader2, MessageSquareText, RotateCcw, Send, SlidersHorizontal, UserRound, Zap } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
 
 interface ChatMessage { role: "user" | "assistant"; content: string }
@@ -57,6 +57,57 @@ const RULE_FIELDS: { key: keyof AgentProfile; label: string; placeholder: string
   { key: "voice_samples", label: "Voix du coach", rows: 6, placeholder: "Colle ici des transcripts de podcast, vidéo, posts, newsletters ou messages DM..." },
 ];
 
+type StudioSectionId = "business" | "prospect" | "rules" | "voice" | "links" | "test";
+
+const STUDIO_SECTIONS: {
+  id: StudioSectionId;
+  title: string;
+  subtitle: string;
+  icon: React.ElementType;
+  fields?: { key: keyof AgentProfile; label: string; placeholder: string; rows: number }[];
+}[] = [
+  {
+    id: "business",
+    title: "Business",
+    subtitle: "Offre, prix, promesse",
+    icon: Briefcase,
+    fields: BUSINESS_FIELDS.filter((field) => ["offer", "price"].includes(field.key)),
+  },
+  {
+    id: "prospect",
+    title: "Prospect",
+    subtitle: "Avatar, douleurs, objectifs",
+    icon: UserRound,
+    fields: BUSINESS_FIELDS.filter((field) => ["avatar_client", "pain_points", "goals", "objections"].includes(field.key)),
+  },
+  {
+    id: "rules",
+    title: "Règles",
+    subtitle: "Qualification et vente",
+    icon: SlidersHorizontal,
+    fields: RULE_FIELDS.filter((field) => ["qualification_rules", "sales_rules", "proof_points"].includes(field.key)),
+  },
+  {
+    id: "voice",
+    title: "Voix",
+    subtitle: "Style, transcripts, limites",
+    icon: MessageSquareText,
+    fields: RULE_FIELDS.filter((field) => ["tone_rules", "forbidden_phrases", "voice_samples"].includes(field.key)),
+  },
+  {
+    id: "links",
+    title: "Liens",
+    subtitle: "Calendly et page",
+    icon: Link2,
+  },
+  {
+    id: "test",
+    title: "Test",
+    subtitle: "Simulation prospect",
+    icon: Zap,
+  },
+];
+
 import { config as appConfig } from "@/lib/config";
 import { getAccessToken } from "@/lib/supabase";
 import { createClient } from "@/lib/supabase/client";
@@ -108,6 +159,7 @@ function ThinkingDots() {
 
 export default function AgentPage() {
   const router = useRouter();
+  const [activeSection, setActiveSection] = useState<StudioSectionId>("business");
 
   // Chat
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -397,116 +449,175 @@ export default function AgentPage() {
     </label>
   );
 
-  const agentProfileCard = (
-    <div style={{ ...card, padding: 20 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
-        <div>
-          <p style={{ ...sectionTitle, marginBottom: 6 }}>Contexte business</p>
-          <p style={{ fontSize: 12, color: "#8e8e8e", margin: 0 }}>
-            Donne à Angelos le contexte pour parler comme le coach, avec précision.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={handleSaveProfile}
-          disabled={profileLoading || profileSaving}
-          style={{
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            padding: "8px 12px", borderRadius: 10, border: "none",
-            background: profileLoading || profileSaving ? "#e0e0e0" : "#0095F6",
-            color: profileLoading || profileSaving ? "#8e8e8e" : "#fff",
-            fontSize: 12, fontWeight: 750,
-            cursor: profileLoading || profileSaving ? "not-allowed" : "pointer",
-            flexShrink: 0,
-          }}
-        >
-          {profileSaving || profileLoading ? <Loader2 size={14} className="animate-spin" /> : null}
-          {profileLoading ? "Chargement" : profileSaving ? "Publication" : "Publier"}
-        </button>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        {BUSINESS_FIELDS.map(profileField)}
-      </div>
-      <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #f0f0f0" }}>
-        <p style={{ ...sectionTitle, marginBottom: 10 }}>Règles et voix</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          {RULE_FIELDS.map(profileField)}
-        </div>
-      </div>
-      {profileToast && (
-        <p style={{
-          fontSize: 12, margin: "12px 0 0",
-          color: profileToast.startsWith("Erreur") ? "#dc2626" : "#16a34a",
-          fontWeight: 650,
-        }}>
-          {profileToast}
-        </p>
-      )}
-    </div>
-  );
+  const completedProfileCount = Object.values(profile).filter((value) => value.trim()).length;
+  const activeStudioSection = STUDIO_SECTIONS.find((section) => section.id === activeSection) || STUDIO_SECTIONS[0];
+  const activeFields = activeStudioSection.fields || [];
+  const isSavingStudio = profileSaving || linksSaving || analysing;
+  const studioActionLabel =
+    activeSection === "links"
+      ? "Publier les liens"
+      : activeSection === "test"
+        ? "Envoyer au feedback loop"
+        : "Publier le profil";
+  const studioActionDisabled =
+    activeSection === "links"
+      ? linksLoading || linksSaving
+      : activeSection === "test"
+        ? analysing
+        : profileLoading || profileSaving;
+  const studioAction = activeSection === "links"
+    ? handleSaveAgentLinks
+    : activeSection === "test"
+      ? handleFeedbackLoop
+      : handleSaveProfile;
 
-  const agentLinksCard = (
-    <div style={{ ...card, padding: 20 }}>
-      <p style={{ ...sectionTitle, marginBottom: 6 }}>Options de l'agent</p>
-      <p style={{ fontSize: 12, color: "#8e8e8e", margin: "0 0 12px" }}>
-        Ces liens seront utilisés par l'agent actif quand il oriente vers un appel ou la page.
-      </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#8e8e8e" }}>Lien envoyé pour un appel</span>
-          <input
-            value={calendlyUrl}
-            onChange={(e) => handleCalendlyUrlChange(e.target.value)}
-            disabled={linksLoading || linksSaving}
-            placeholder="https://calendly.com/..."
-            style={{
-              width: "100%", background: "#f5f5f5", border: "none", borderRadius: 10,
-              padding: "10px 12px", fontSize: 13, color: "#0a0a0a",
-              outline: "none", fontFamily: "inherit", boxSizing: "border-box",
-              opacity: linksLoading || linksSaving ? 0.6 : 1,
-            }}
-          />
-        </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#8e8e8e" }}>Lien envoyé pour la page de vente</span>
-          <input
-            value={salesPageUrl}
-            onChange={(e) => handleSalesPageUrlChange(e.target.value)}
-            disabled={linksLoading || linksSaving}
-            placeholder="https://votre-page-de-vente.com"
-            style={{
-              width: "100%", background: "#f5f5f5", border: "none", borderRadius: 10,
-              padding: "10px 12px", fontSize: 13, color: "#0a0a0a",
-              outline: "none", fontFamily: "inherit", boxSizing: "border-box",
-              opacity: linksLoading || linksSaving ? 0.6 : 1,
-            }}
-          />
-        </label>
-        <button
-          type="button"
-          onClick={handleSaveAgentLinks}
-          disabled={linksLoading || linksSaving}
-          style={{
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            padding: "10px 0", borderRadius: 10, border: "none",
-            background: linksLoading || linksSaving ? "#e0e0e0" : "#1D9E75",
-            color: linksLoading || linksSaving ? "#8e8e8e" : "#fff",
-            fontSize: 13, fontWeight: 700,
-            cursor: linksLoading || linksSaving ? "not-allowed" : "pointer",
-          }}
-        >
-          {linksSaving || linksLoading ? <Loader2 size={14} className="animate-spin" /> : null}
-          {linksLoading ? "Chargement..." : linksSaving ? "Enregistrement..." : "Enregistrer les options"}
-        </button>
-        {linksToast && (
-          <p style={{
-            fontSize: 12, margin: 0,
-            color: linksToast.startsWith("Erreur") ? "#dc2626" : "#16a34a",
-            fontWeight: 600,
-          }}>
-            {linksToast}
+  const studioCard = (
+    <div style={{ ...card, padding: 0, overflow: "hidden" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "240px minmax(0, 1fr) 280px", minHeight: 520 }}>
+        <div style={{ borderRight: "1px solid #f0f0f0", padding: 16, background: "#fbfbfb" }}>
+          <p style={{ fontSize: 11, fontWeight: 800, color: "#8e8e8e", margin: "0 0 12px", textTransform: "uppercase", letterSpacing: 0 }}>
+            Configuration
           </p>
-        )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {STUDIO_SECTIONS.map((section) => {
+              const active = section.id === activeSection;
+              const Icon = section.icon;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setActiveSection(section.id)}
+                  style={{
+                    width: "100%",
+                    minHeight: 52,
+                    border: "none",
+                    borderRadius: 10,
+                    background: active ? "#f2f7ff" : "transparent",
+                    color: active ? "#0a0a0a" : "#737373",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "8px 10px",
+                    textAlign: "left",
+                  }}
+                >
+                  <Icon size={17} color={active ? "#0095F6" : "currentColor"} />
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: "block", fontSize: 13, fontWeight: 760 }}>{section.title}</span>
+                    <span style={{ display: "block", fontSize: 11, color: "#9a9a9a", marginTop: 2 }}>{section.subtitle}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ padding: 24 }}>
+          <div style={{ marginBottom: 18 }}>
+            <p style={{ fontSize: 12, color: "#0095F6", fontWeight: 800, margin: "0 0 6px", textTransform: "uppercase", letterSpacing: 0 }}>
+              {activeStudioSection.title}
+            </p>
+            <h2 style={{ fontSize: 22, fontWeight: 850, color: "#0a0a0a", margin: "0 0 6px" }}>
+              {activeStudioSection.subtitle}
+            </h2>
+            <p style={{ fontSize: 13, color: "#8e8e8e", lineHeight: 1.5, margin: 0 }}>
+              {activeSection === "links"
+                ? "Définis les destinations qu'Angelos peut envoyer quand le prospect est qualifié."
+                : activeSection === "test"
+                  ? "Teste Angelos avec un message de prospect et note ce qui doit être amélioré."
+                  : "Remplis uniquement cette section, publie, puis teste l'effet dans la simulation."}
+            </p>
+          </div>
+
+          {activeSection === "links" ? (
+            <div style={{ display: "grid", gap: 12 }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                <span style={{ fontSize: 12, fontWeight: 650, color: "#6f6f6f" }}>Lien envoyé pour un appel</span>
+                <input
+                  value={calendlyUrl}
+                  onChange={(e) => handleCalendlyUrlChange(e.target.value)}
+                  disabled={linksLoading || linksSaving}
+                  placeholder="https://calendly.com/..."
+                  style={inputBase}
+                />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                <span style={{ fontSize: 12, fontWeight: 650, color: "#6f6f6f" }}>Lien envoyé pour la page de vente</span>
+                <input
+                  value={salesPageUrl}
+                  onChange={(e) => handleSalesPageUrlChange(e.target.value)}
+                  disabled={linksLoading || linksSaving}
+                  placeholder="https://votre-page-de-vente.com"
+                  style={inputBase}
+                />
+              </label>
+            </div>
+          ) : activeSection === "test" ? (
+            <div style={{ display: "grid", gap: 12 }}>
+              <textarea
+                value={observations}
+                onChange={(e) => handleObservationsChange(e.target.value)}
+                placeholder="Note ce que tu observes pendant le test : ce qui fonctionne, ce qui coince, ce que tu voudrais changer..."
+                rows={8}
+                style={{ ...inputBase, resize: "vertical" }}
+              />
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              {activeFields.map(profileField)}
+            </div>
+          )}
+        </div>
+
+        <div style={{ borderLeft: "1px solid #f0f0f0", padding: 20, background: "#fbfbfb", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ background: "#fff", border: "1px solid #eeeeee", borderRadius: 12, padding: 16 }}>
+            <p style={{ ...sectionTitle, marginBottom: 8 }}>Statut</p>
+            <p style={{ fontSize: 28, fontWeight: 850, color: "#0a0a0a", margin: "0 0 4px" }}>{completedProfileCount}/12</p>
+            <p style={{ fontSize: 12, color: "#8e8e8e", margin: 0 }}>champs de profil remplis</p>
+          </div>
+          <button
+            type="button"
+            onClick={studioAction}
+            disabled={studioActionDisabled}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "12px 0", borderRadius: 10, border: "none",
+              background: studioActionDisabled ? "#e5e5e5" : "#0095F6",
+              color: studioActionDisabled ? "#8e8e8e" : "#fff",
+              fontSize: 13, fontWeight: 800,
+              cursor: studioActionDisabled ? "not-allowed" : "pointer",
+            }}
+          >
+            {isSavingStudio ? <Loader2 size={14} className="animate-spin" /> : null}
+            {studioActionLabel}
+          </button>
+          {(profileToast || linksToast || toast) && (
+            <p style={{
+              fontSize: 12, margin: 0,
+              color: (profileToast || linksToast || toast || "").startsWith("Erreur") ? "#dc2626" : "#16a34a",
+              fontWeight: 650,
+            }}>
+              {profileToast || linksToast || toast}
+            </p>
+          )}
+          <div style={{ background: "#fff", border: "1px solid #eeeeee", borderRadius: 12, padding: 16 }}>
+            <p style={{ ...sectionTitle, marginBottom: 8 }}>Test rapide</p>
+            <p style={{ fontSize: 12, color: "#8e8e8e", margin: "0 0 12px", lineHeight: 1.45 }}>
+              Le simulateur en dessous utilise le prompt actif et les liens configurés.
+            </p>
+            <button
+              type="button"
+              onClick={() => setActiveSection("test")}
+              style={{
+                width: "100%", padding: "9px 0", borderRadius: 10, border: "1px solid #e8e8e8",
+                background: "#fff", color: "#262626", fontSize: 12, fontWeight: 750, cursor: "pointer",
+              }}
+            >
+              Préparer le test
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -515,41 +626,22 @@ export default function AgentPage() {
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#fafafa", paddingLeft: 72 }}>
       <NavBar />
       <div style={{ flex: 1, overflowY: "auto", padding: "28px 20px 40px" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+        <div style={{ maxWidth: 1320, margin: "0 auto" }}>
 
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "1.4fr repeat(3, minmax(150px, 1fr))",
-            gap: 14,
-            alignItems: "stretch",
-            marginBottom: 18,
-          }}>
-            <div style={{ ...card, padding: 24, justifyContent: "center" }}>
-              <p style={{ fontSize: 12, fontWeight: 800, color: "#0095F6", margin: "0 0 8px", textTransform: "uppercase", letterSpacing: 0 }}>
-                Agent Studio
-              </p>
-              <h1 style={{ fontSize: 28, fontWeight: 850, color: "#0a0a0a", margin: "0 0 8px" }}>
-                Configurer Angelos
-              </h1>
-              <p style={{ fontSize: 13, color: "#7a7a7a", margin: 0, lineHeight: 1.5, maxWidth: 520 }}>
-                Renseigne le business, la voix du coach et les règles commerciales, puis teste Angelos comme si tu étais un prospect.
-              </p>
-            </div>
-            {[
-              { label: "Profil", value: profileLoading ? "..." : Object.values(profile).filter((v) => v.trim()).length, help: "champs remplis" },
-              { label: "Test", value: messages.length, help: "messages simulés" },
-              { label: "Versions", value: promptVersions.length, help: "prompts publiés" },
-            ].map((item) => (
-              <div key={item.label} style={{ ...card, padding: 18, justifyContent: "center" }}>
-                <p style={{ fontSize: 12, color: "#8e8e8e", margin: "0 0 10px", fontWeight: 650 }}>{item.label}</p>
-                <p style={{ fontSize: 28, color: "#0a0a0a", margin: "0 0 4px", fontWeight: 850 }}>{item.value}</p>
-                <p style={{ fontSize: 12, color: "#8e8e8e", margin: 0 }}>{item.help}</p>
-              </div>
-            ))}
+          <div style={{ marginBottom: 18 }}>
+            <p style={{ fontSize: 12, fontWeight: 800, color: "#0095F6", margin: "0 0 8px", textTransform: "uppercase", letterSpacing: 0 }}>
+              Agent Studio
+            </p>
+            <h1 style={{ fontSize: 28, fontWeight: 850, color: "#0a0a0a", margin: "0 0 8px" }}>
+              Configurer Angelos
+            </h1>
+            <p style={{ fontSize: 13, color: "#7a7a7a", margin: 0, lineHeight: 1.5, maxWidth: 620 }}>
+              Renseigne le business, la voix du coach et les règles commerciales, puis teste Angelos comme si tu étais un prospect.
+            </p>
           </div>
 
-          <div style={{ marginBottom: 16 }}>
-            {agentProfileCard}
+          <div style={{ marginBottom: 18 }}>
+            {studioCard}
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.1fr) minmax(340px, 0.9fr)", gap: 16, alignItems: "start" }}>
@@ -687,8 +779,6 @@ export default function AgentPage() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {agentLinksCard}
-
               <div style={{ ...card, padding: 20 }}>
                 <p style={{ ...sectionTitle, marginBottom: 10 }}>Tes observations</p>
                 <textarea

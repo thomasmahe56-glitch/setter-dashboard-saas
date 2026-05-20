@@ -3,13 +3,33 @@ import { getAccessToken } from "@/lib/supabase";
 
 const RAILWAY_URL = config.apiUrl;
 
+export class ApiAuthError extends Error {
+  status: number;
+  detail: string;
+
+  constructor(status: number, detail: string) {
+    super("API_AUTH_FAILED");
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+async function readErrorDetail(res: Response): Promise<string> {
+  try {
+    const data = await res.json();
+    return typeof data?.detail === "string" ? data.detail : `API error: ${res.status}`;
+  } catch {
+    return `API error: ${res.status}`;
+  }
+}
+
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!RAILWAY_URL) {
     throw new Error("API_URL_MISSING");
   }
   const token = await getAccessToken();
   if (!token) {
-    throw new Error("UNAUTHORIZED");
+    throw new Error("NO_SESSION");
   }
   const res = await fetch(`${RAILWAY_URL}${path}`, {
     ...options,
@@ -19,8 +39,10 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
       ...(options.headers || {}),
     },
   });
-  if (res.status === 401) throw new Error("UNAUTHORIZED");
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (res.status === 401 || res.status === 403) {
+    throw new ApiAuthError(res.status, await readErrorDetail(res));
+  }
+  if (!res.ok) throw new Error(await readErrorDetail(res));
   return res.json();
 }
 

@@ -6,7 +6,7 @@ import { Check, Clock3, Copy, ExternalLink, Loader2, Send, Sparkles } from "luci
 import { NavBar } from "@/components/NavBar";
 import { Avatar } from "@/components/Avatar";
 import { StatusBadge } from "@/components/StatusBadge";
-import { api, FollowUpDue, FollowUpPreview } from "@/lib/api";
+import { api, ApiAuthError, FollowUpDue, FollowUpPreview } from "@/lib/api";
 import { getInstagramHandle } from "@/lib/utils";
 
 function RelanceSkeleton() {
@@ -49,9 +49,11 @@ export default function RelancePage() {
       setError(null);
       setLastRefresh(new Date());
     } catch (e: unknown) {
-      if (e instanceof Error && e.message === "UNAUTHORIZED") {
+      if (e instanceof Error && e.message === "NO_SESSION") {
         await createClient().auth.signOut();
         window.location.href = "/login";
+      } else if (e instanceof ApiAuthError) {
+        setError(`Connexion Supabase OK, mais l'API refuse le token (${e.status}) : ${e.detail}`);
       } else {
         setError("Erreur de connexion");
       }

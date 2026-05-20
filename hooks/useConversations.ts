@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { api, ConversationSummary } from "@/lib/api";
+import { api, ApiAuthError, ConversationSummary } from "@/lib/api";
 
 export function useConversations() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -15,10 +15,12 @@ export function useConversations() {
       setError(null);
       setLastRefresh(new Date());
     } catch (e: unknown) {
-      if (e instanceof Error && e.message === "UNAUTHORIZED") {
+      if (e instanceof Error && e.message === "NO_SESSION") {
         const { supabase } = await import("@/lib/supabase");
         await supabase.auth.signOut();
         window.location.href = "/login";
+      } else if (e instanceof ApiAuthError) {
+        setError(`Connexion Supabase OK, mais l'API refuse le token (${e.status}) : ${e.detail}`);
       } else if (e instanceof Error && e.message === "API_URL_MISSING") {
         setError("NEXT_PUBLIC_API_URL n'est pas configurée");
       } else {

@@ -52,7 +52,7 @@ export default function LoginPage() {
 
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-            <AngelosAvatar size={72} radius={20} shadow="0 8px 32px rgba(0,149,246,0.18)" />
+            <AngelosAvatar size={92} radius={24} shadow="0 8px 32px rgba(0,149,246,0.18)" />
           </div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 6px" }}>
             {appConfig.agentName}

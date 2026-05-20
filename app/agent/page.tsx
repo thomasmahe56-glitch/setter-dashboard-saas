@@ -86,12 +86,13 @@ export default function AgentPage() {
   const [versionToast, setVersionToast] = useState<string | null>(null);
 
   useEffect(() => {
-    import("@/lib/supabase").then(({ supabase }) => {
-      supabase.auth.getSession().then(({ data }) => {
-        if (!data.session) router.replace("/login");
-      });
-    });
-  }, [router]);
+    async function checkAuth() {
+      const { supabase } = await import("@/lib/supabase");
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) window.location.href = "/login";
+    }
+    checkAuth();
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem("agent_observations");

@@ -46,10 +46,12 @@ export default function CRMPage() {
   const [mobilePanel, setMobilePanel] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) router.replace("/login");
-    });
-  }, [router]);
+    async function checkAuth() {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) window.location.href = "/login";
+    }
+    checkAuth();
+  }, []);
 
   useEffect(() => {
     if (!selectedId) {

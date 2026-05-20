@@ -44,10 +44,12 @@ export default function KPIPage() {
   const { conversations, loading, error, lastRefresh, refresh } = useConversations();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) router.replace("/login");
-    });
-  }, [router]);
+    async function checkAuth() {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) window.location.href = "/login";
+    }
+    checkAuth();
+  }, []);
 
   const total = conversations.length;
   const counts = FUNNEL.reduce((acc, { status }) => {

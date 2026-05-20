@@ -37,10 +37,12 @@ export default function RelancePage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) router.replace("/login");
-    });
-  }, [router]);
+    async function checkAuth() {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) window.location.href = "/login";
+    }
+    checkAuth();
+  }, []);
 
   const refresh = useCallback(async () => {
     try {

@@ -47,7 +47,7 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    router.replace("/crm");
+    window.location.href = "/crm";
   }
 
   return (

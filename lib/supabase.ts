@@ -5,9 +5,12 @@ let _supabase: SupabaseClient | null = null;
 
 export function getSupabaseClient(): SupabaseClient {
   if (_supabase) return _supabase;
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    throw new Error("Supabase Auth is not configured");
+  }
   _supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
   return _supabase;
 }
@@ -28,6 +31,5 @@ export const supabase = {
 export async function getAccessToken(): Promise<string> {
   const { data } = await getSupabaseClient().auth.getSession();
   const token = data.session?.access_token ?? "";
-  console.log("[auth] getAccessToken:", token ? `token OK (${token.length} chars)` : "TOKEN VIDE — session absente");
   return token;
 }

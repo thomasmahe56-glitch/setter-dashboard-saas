@@ -19,6 +19,8 @@ export function useConversations() {
         const { supabase } = await import("@/lib/supabase");
         await supabase.auth.signOut();
         window.location.href = "/login";
+      } else if (e instanceof Error && e.message === "API_URL_MISSING") {
+        setError("NEXT_PUBLIC_API_URL n'est pas configurée");
       } else {
         setError("Erreur de connexion");
       }

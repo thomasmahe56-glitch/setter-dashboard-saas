@@ -3,6 +3,8 @@
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://lyrlvipkwzbsojqbposh.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<Supabase → Settings → API → anon public key>
+NEXT_PUBLIC_API_URL=<URL Railway de setter-agent-saas, ex: https://xxx.up.railway.app>
+NEXT_PUBLIC_AGENT_NAME=<Nom affiché dans le dashboard>
 ```
 
 ### Comment récupérer NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -16,4 +18,5 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<Supabase → Settings → API → anon public key
 
 - La clé **anon** est safe côté client (elle ne bypass pas le RLS)
 - Ne jamais utiliser la **service_role** key côté frontend
+- `NEXT_PUBLIC_API_URL` doit pointer vers l'API Railway sans slash final
 - Ajouter aussi ces variables dans .env.local pour le développement local

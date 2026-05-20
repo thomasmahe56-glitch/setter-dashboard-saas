@@ -4,7 +4,13 @@ import { getAccessToken } from "@/lib/supabase";
 const RAILWAY_URL = config.apiUrl;
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  if (!RAILWAY_URL) {
+    throw new Error("API_URL_MISSING");
+  }
   const token = await getAccessToken();
+  if (!token) {
+    throw new Error("UNAUTHORIZED");
+  }
   const res = await fetch(`${RAILWAY_URL}${path}`, {
     ...options,
     headers: {
@@ -13,7 +19,6 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
       ...(options.headers || {}),
     },
   });
-  console.log(`[api] ${path} → ${res.status}`);
   if (res.status === 401) throw new Error("UNAUTHORIZED");
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();

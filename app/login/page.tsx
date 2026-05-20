@@ -1,9 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { config as appConfig } from "@/lib/config";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -13,10 +15,10 @@ export default function LoginPage() {
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) window.location.href = "/crm";
+      if (data.session) router.replace("/crm");
       else setChecking(false);
     });
-  }, []);
+  }, [router]);
 
   if (checking) return null;
 
@@ -26,18 +28,17 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     const supabase = createClient();
-    const { data: sessionData, error } = await supabase.auth.signInWithPassword({ email, password });
-    console.log("Auth result:", JSON.stringify({
-      hasSession: !!sessionData?.session,
-      hasUser: !!sessionData?.session?.user,
-      error: error?.message
-    }));
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
     if (error) {
-      setError("Email ou mot de passe incorrect");
+      setError("Email ou mot de passe incorrect.");
       setLoading(false);
       return;
     }
-    setTimeout(() => { window.location.href = "/crm"; }, 100);
+    router.replace("/crm");
+    router.refresh();
   }
 
   return (

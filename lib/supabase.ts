@@ -1,23 +1,27 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 let _supabase: SupabaseClient | null = null;
 
 export function getSupabaseClient(): SupabaseClient {
   if (_supabase) return _supabase;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  _supabase = createClient(url || "", key || "");
+  _supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+  );
   return _supabase;
 }
 
 export const supabase = {
   auth: {
     getSession: () => getSupabaseClient().auth.getSession(),
+    getUser: () => getSupabaseClient().auth.getUser(),
     signInWithPassword: (credentials: { email: string; password: string }) =>
       getSupabaseClient().auth.signInWithPassword(credentials),
     signOut: () => getSupabaseClient().auth.signOut(),
-    onAuthStateChange: (callback: Parameters<SupabaseClient["auth"]["onAuthStateChange"]>[0]) =>
-      getSupabaseClient().auth.onAuthStateChange(callback),
+    onAuthStateChange: (
+      callback: Parameters<SupabaseClient["auth"]["onAuthStateChange"]>[0]
+    ) => getSupabaseClient().auth.onAuthStateChange(callback),
   },
 };
 

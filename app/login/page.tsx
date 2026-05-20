@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { config } from "@/lib/config";
+import { config as appConfig } from "@/lib/config";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -9,29 +9,17 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
-    async function checkSession() {
-      try {
-        const { createClient } = await import("@supabase/supabase-js");
-        const sb = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
-        const { data } = await sb.auth.getSession();
-        if (data.session) {
-          router.replace("/crm");
-          return;
-        }
-      } catch (e) {
-        console.error("Session check failed:", e);
-      } finally {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        window.location.href = "/crm";
+      } else {
         setChecking(false);
       }
-    }
-    checkSession();
-  }, [router]);
+    });
+  }, []);
 
   if (checking) return null;
 
@@ -40,7 +28,7 @@ export default function LoginPage() {
     if (!email.trim() || !password.trim()) return;
     setLoading(true);
     setError("");
-    const { supabase } = await import("@/lib/supabase");
+    const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setError("Email ou mot de passe incorrect");
@@ -58,7 +46,6 @@ export default function LoginPage() {
     }}>
       <div style={{ width: "100%", maxWidth: 400 }}>
 
-        {/* Logo + titre */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{
             width: 64, height: 64, borderRadius: 20,
@@ -68,18 +55,17 @@ export default function LoginPage() {
             boxShadow: "0 8px 32px rgba(0,149,246,0.25)",
           }}>
             <span style={{ color: "#fff", fontWeight: 800, fontSize: 28 }}>
-              {config.agentName.charAt(0)}
+              {appConfig.agentName.charAt(0)}
             </span>
           </div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 6px" }}>
-            {config.agentName}
+            {appConfig.agentName}
           </h1>
           <p style={{ fontSize: 14, color: "#8e8e8e", margin: 0 }}>
             Connectez-vous à votre dashboard
           </p>
         </div>
 
-        {/* Card login */}
         <div style={{
           background: "#fff", borderRadius: 20, padding: 32,
           boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
@@ -156,7 +142,7 @@ export default function LoginPage() {
         </div>
 
         <p style={{ textAlign: "center", fontSize: 12, color: "#9ca3af", marginTop: 20 }}>
-          {config.agentName} · Setter Dashboard · Accès restreint
+          {appConfig.agentName} · Setter Dashboard · Accès restreint
         </p>
       </div>
     </div>

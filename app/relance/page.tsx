@@ -38,8 +38,8 @@ export default function RelancePage() {
 
   useEffect(() => {
     async function checkAuth() {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) window.location.href = "/login";
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) window.location.href = "/login";
     }
     checkAuth();
   }, []);

@@ -9,6 +9,53 @@ interface BusinessSuggestion { suggestion: string; priority: "high" | "medium" |
 interface Insight { id: string; created_at: string; business_suggestions: BusinessSuggestion[] }
 interface PromptVersion { id: string; created_at: string; is_active: boolean; source: string; insight_id: string | null }
 interface AgentLinks { calendly_url: string; sales_page_url: string }
+interface AgentProfile {
+  avatar_client: string;
+  offer: string;
+  price: string;
+  pain_points: string;
+  goals: string;
+  objections: string;
+  qualification_rules: string;
+  sales_rules: string;
+  proof_points: string;
+  voice_samples: string;
+  tone_rules: string;
+  forbidden_phrases: string;
+}
+
+const EMPTY_PROFILE: AgentProfile = {
+  avatar_client: "",
+  offer: "",
+  price: "",
+  pain_points: "",
+  goals: "",
+  objections: "",
+  qualification_rules: "",
+  sales_rules: "",
+  proof_points: "",
+  voice_samples: "",
+  tone_rules: "",
+  forbidden_phrases: "",
+};
+
+const BUSINESS_FIELDS: { key: keyof AgentProfile; label: string; placeholder: string; rows: number }[] = [
+  { key: "avatar_client", label: "Avatar client", rows: 4, placeholder: "Ex : femme 35-50 ans, sportive mais bloquée par des douleurs, veut retrouver confiance..." },
+  { key: "offer", label: "Offre", rows: 4, placeholder: "Nom, promesse, format, durée, accompagnement inclus, pour qui / pas pour qui..." },
+  { key: "price", label: "Prix", rows: 2, placeholder: "Prix exact ou fourchette, paiement possible, quand en parler..." },
+  { key: "pain_points", label: "Douleurs", rows: 3, placeholder: "Frustrations, peurs, problèmes récurrents, déclencheurs..." },
+  { key: "goals", label: "Objectifs", rows: 3, placeholder: "Ce que le prospect veut vraiment obtenir, à court et long terme..." },
+  { key: "objections", label: "Objections", rows: 3, placeholder: "Trop cher, pas le temps, déjà essayé, peur de ne pas tenir..." },
+];
+
+const RULE_FIELDS: { key: keyof AgentProfile; label: string; placeholder: string; rows: number }[] = [
+  { key: "qualification_rules", label: "Qualification", rows: 3, placeholder: "Questions obligatoires avant un appel ou un lien. Signaux d'intérêt à vérifier..." },
+  { key: "sales_rules", label: "Règles commerciales", rows: 3, placeholder: "Quand proposer l'appel, quand envoyer la page, quoi éviter, niveau de proactivité..." },
+  { key: "proof_points", label: "Preuves", rows: 3, placeholder: "Résultats clients, transformations, cas typiques, chiffres, témoignages..." },
+  { key: "tone_rules", label: "Ton du coach", rows: 3, placeholder: "Chaleureux, direct, phrases courtes, vocabulaire favori, niveau d'emojis..." },
+  { key: "forbidden_phrases", label: "À éviter", rows: 2, placeholder: "Mots, tournures ou promesses à ne jamais utiliser..." },
+  { key: "voice_samples", label: "Voix du coach", rows: 6, placeholder: "Colle ici des transcripts de podcast, vidéo, posts, newsletters ou messages DM..." },
+];
 
 import { config as appConfig } from "@/lib/config";
 import { getAccessToken } from "@/lib/supabase";
@@ -76,6 +123,10 @@ export default function AgentPage() {
   const [linksLoading, setLinksLoading] = useState(true);
   const [linksSaving, setLinksSaving] = useState(false);
   const [linksToast, setLinksToast] = useState<string | null>(null);
+  const [profile, setProfile] = useState<AgentProfile>(EMPTY_PROFILE);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileToast, setProfileToast] = useState<string | null>(null);
   const [observations, setObservations] = useState("");
   const [lastInsight, setLastInsight] = useState<Insight | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(true);
@@ -128,9 +179,26 @@ export default function AgentPage() {
     }
   }, []);
 
+  const fetchAgentProfile = useCallback(async () => {
+    try {
+      const data = await apiFetch<Partial<AgentProfile>>("/agent-profile");
+      setProfile({ ...EMPTY_PROFILE, ...data });
+    } catch {
+      const stored = localStorage.getItem("agent_profile");
+      if (stored) {
+        try {
+          setProfile({ ...EMPTY_PROFILE, ...JSON.parse(stored) });
+        } catch {}
+      }
+    } finally {
+      setProfileLoading(false);
+    }
+  }, []);
+
   useEffect(() => { fetchLastInsight(); }, [fetchLastInsight]);
   useEffect(() => { fetchPromptVersions(); }, [fetchPromptVersions]);
   useEffect(() => { fetchAgentLinks(); }, [fetchAgentLinks]);
+  useEffect(() => { fetchAgentProfile(); }, [fetchAgentProfile]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -149,6 +217,32 @@ export default function AgentPage() {
   function handleSalesPageUrlChange(val: string) {
     setSalesPageUrl(val);
     localStorage.setItem("agent_sales_page_url", val);
+  }
+
+  function handleProfileChange(key: keyof AgentProfile, value: string) {
+    const next = { ...profile, [key]: value };
+    setProfile(next);
+    localStorage.setItem("agent_profile", JSON.stringify(next));
+  }
+
+  async function handleSaveProfile() {
+    setProfileSaving(true);
+    setProfileToast(null);
+    try {
+      await apiFetch("/agent-profile", {
+        method: "PATCH",
+        body: JSON.stringify(profile),
+      });
+      localStorage.setItem("agent_profile", JSON.stringify(profile));
+      await fetchPromptVersions();
+      setProfileToast("Profil business publié dans le prompt actif");
+      setTimeout(() => setProfileToast(null), 3000);
+    } catch {
+      setProfileToast("Erreur lors de l'enregistrement");
+      setTimeout(() => setProfileToast(null), 3000);
+    } finally {
+      setProfileSaving(false);
+    }
   }
 
   async function handleSaveAgentLinks() {
@@ -271,8 +365,86 @@ export default function AgentPage() {
   const sectionTitle: React.CSSProperties = {
     fontSize: 13, fontWeight: 700, color: "#0a0a0a", margin: 0,
   };
+  const inputBase: React.CSSProperties = {
+    width: "100%",
+    background: "#f5f5f5",
+    border: "none",
+    borderRadius: 10,
+    padding: "10px 12px",
+    fontSize: 13,
+    color: "#0a0a0a",
+    outline: "none",
+    fontFamily: "inherit",
+    boxSizing: "border-box",
+  };
 
   const prevRole = useRef<string | null>(null);
+  const profileField = (field: { key: keyof AgentProfile; label: string; placeholder: string; rows: number }) => (
+    <label key={field.key} style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+      <span style={{ fontSize: 12, fontWeight: 650, color: "#6f6f6f" }}>{field.label}</span>
+      <textarea
+        value={profile[field.key]}
+        onChange={(e) => handleProfileChange(field.key, e.target.value)}
+        disabled={profileLoading || profileSaving}
+        placeholder={field.placeholder}
+        rows={field.rows}
+        style={{
+          ...inputBase,
+          resize: "vertical",
+          opacity: profileLoading || profileSaving ? 0.6 : 1,
+        }}
+      />
+    </label>
+  );
+
+  const agentProfileCard = (
+    <div style={{ ...card, padding: 20 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+        <div>
+          <p style={{ ...sectionTitle, marginBottom: 6 }}>Contexte business</p>
+          <p style={{ fontSize: 12, color: "#8e8e8e", margin: 0 }}>
+            Donne à Angelos le contexte pour parler comme le coach, avec précision.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleSaveProfile}
+          disabled={profileLoading || profileSaving}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            padding: "8px 12px", borderRadius: 10, border: "none",
+            background: profileLoading || profileSaving ? "#e0e0e0" : "#0095F6",
+            color: profileLoading || profileSaving ? "#8e8e8e" : "#fff",
+            fontSize: 12, fontWeight: 750,
+            cursor: profileLoading || profileSaving ? "not-allowed" : "pointer",
+            flexShrink: 0,
+          }}
+        >
+          {profileSaving || profileLoading ? <Loader2 size={14} className="animate-spin" /> : null}
+          {profileLoading ? "Chargement" : profileSaving ? "Publication" : "Publier"}
+        </button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {BUSINESS_FIELDS.map(profileField)}
+      </div>
+      <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #f0f0f0" }}>
+        <p style={{ ...sectionTitle, marginBottom: 10 }}>Règles et voix</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          {RULE_FIELDS.map(profileField)}
+        </div>
+      </div>
+      {profileToast && (
+        <p style={{
+          fontSize: 12, margin: "12px 0 0",
+          color: profileToast.startsWith("Erreur") ? "#dc2626" : "#16a34a",
+          fontWeight: 650,
+        }}>
+          {profileToast}
+        </p>
+      )}
+    </div>
+  );
+
   const agentLinksCard = (
     <div style={{ ...card, padding: 20 }}>
       <p style={{ ...sectionTitle, marginBottom: 6 }}>Options de l'agent</p>
@@ -486,6 +658,7 @@ export default function AgentPage() {
               </div>
             </div>
 
+            {agentProfileCard}
             {agentLinksCard}
             </div>
 

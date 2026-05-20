@@ -1,8 +1,9 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { RefreshCw } from "lucide-react";
+import { LogOut, RefreshCw } from "lucide-react";
 import { config } from "@/lib/config";
+import { createClient } from "@/lib/supabase/client";
 
 const TABS = [
   { href: "/crm", label: "CRM" },
@@ -19,6 +20,11 @@ interface NavBarProps {
 
 export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
   const path = usePathname();
+
+  async function handleLogout() {
+    await createClient().auth.signOut();
+    window.location.href = "/login";
+  }
 
   return (
     <nav style={{
@@ -75,10 +81,17 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
             padding: 8, borderRadius: "50%", border: "none",
             background: "transparent", cursor: "pointer", color: "#8e8e8e",
             display: "flex", alignItems: "center",
-          }}>
+          }} title="Rafraîchir" aria-label="Rafraîchir">
             <RefreshCw size={16} />
           </button>
         )}
+        <button onClick={handleLogout} style={{
+          padding: 8, borderRadius: "50%", border: "none",
+          background: "transparent", cursor: "pointer", color: "#8e8e8e",
+          display: "flex", alignItems: "center",
+        }} title="Se déconnecter" aria-label="Se déconnecter">
+          <LogOut size={16} />
+        </button>
       </div>
     </nav>
   );

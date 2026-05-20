@@ -92,7 +92,7 @@ export default function CRMPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#f5f5f5" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#f5f5f5", paddingLeft: 72 }}>
       <NavBar lastRefresh={lastRefresh} onRefresh={refresh} />
       {loading ? (
         <CRMInitialSkeleton />

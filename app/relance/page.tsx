@@ -115,7 +115,7 @@ export default function RelancePage() {
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#fafafa" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#fafafa", paddingLeft: 72 }}>
       <NavBar lastRefresh={lastRefresh} onRefresh={refresh} />
       {loading ? (
         <RelanceSkeleton />

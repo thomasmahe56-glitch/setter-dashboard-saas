@@ -340,7 +340,7 @@ export default function AgentPage() {
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#fafafa" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#fafafa", paddingLeft: 72 }}>
       <NavBar />
       <div style={{ flex: 1, overflowY: "auto", padding: "24px 16px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>

@@ -27,5 +27,7 @@ export const supabase = {
 
 export async function getAccessToken(): Promise<string> {
   const { data } = await getSupabaseClient().auth.getSession();
-  return data.session?.access_token ?? "";
+  const token = data.session?.access_token ?? "";
+  console.log("[auth] getAccessToken:", token ? `token OK (${token.length} chars)` : "TOKEN VIDE — session absente");
+  return token;
 }

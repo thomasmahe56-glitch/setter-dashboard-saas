@@ -13,6 +13,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
       ...(options.headers || {}),
     },
   });
+  console.log(`[api] ${path} → ${res.status}`);
   if (res.status === 401) throw new Error("UNAUTHORIZED");
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();

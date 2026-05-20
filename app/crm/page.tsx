@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import { useConversations } from "@/hooks/useConversations";
 import { api, Conversation, ConversationSummary } from "@/lib/api";
 import { NavBar } from "@/components/NavBar";
@@ -46,11 +46,9 @@ export default function CRMPage() {
   const [mobilePanel, setMobilePanel] = useState(false);
 
   useEffect(() => {
-    async function checkAuth() {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) window.location.href = "/login";
-    }
-    checkAuth();
+    createClient().auth.getSession().then(({ data }) => {
+      if (!data.session) window.location.href = "/login";
+    });
   }, []);
 
   useEffect(() => {

@@ -12,6 +12,7 @@ interface AgentLinks { calendly_url: string; sales_page_url: string }
 
 import { config as appConfig } from "@/lib/config";
 import { getAccessToken } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 const RAILWAY_URL = appConfig.apiUrl;
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -86,12 +87,9 @@ export default function AgentPage() {
   const [versionToast, setVersionToast] = useState<string | null>(null);
 
   useEffect(() => {
-    async function checkAuth() {
-      const { supabase } = await import("@/lib/supabase");
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) window.location.href = "/login";
-    }
-    checkAuth();
+    createClient().auth.getSession().then(({ data }) => {
+      if (!data.session) window.location.href = "/login";
+    });
   }, []);
 
   useEffect(() => {

@@ -24,6 +24,7 @@ interface PreviewResult { prompt_proposed: string; diff: PreviewDiffLine[] }
 
 import { config as appConfig } from "@/lib/config";
 import { getAccessToken } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 const RAILWAY_URL = appConfig.apiUrl;
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -594,12 +595,9 @@ export default function InsightsPage() {
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    async function checkAuth() {
-      const { supabase } = await import("@/lib/supabase");
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) window.location.href = "/login";
-    }
-    checkAuth();
+    createClient().auth.getSession().then(({ data }) => {
+      if (!data.session) window.location.href = "/login";
+    });
   }, []);
 
   const fetchInsights = useCallback(async () => {

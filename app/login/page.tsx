@@ -12,12 +12,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        window.location.href = "/crm";
-      } else {
-        setChecking(false);
-      }
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) window.location.href = "/crm";
+      else setChecking(false);
     });
   }, []);
 
@@ -40,7 +37,7 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    window.location.href = "/crm";
+    setTimeout(() => { window.location.href = "/crm"; }, 100);
   }
 
   return (

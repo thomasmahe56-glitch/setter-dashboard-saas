@@ -12,12 +12,25 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    import("@/lib/supabase").then(({ supabase }) => {
-      supabase.auth.getSession().then(({ data }) => {
-        if (data.session) router.replace("/crm");
-        else setChecking(false);
-      });
-    });
+    async function checkSession() {
+      try {
+        const { createClient } = await import("@supabase/supabase-js");
+        const sb = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        const { data } = await sb.auth.getSession();
+        if (data.session) {
+          router.replace("/crm");
+          return;
+        }
+      } catch (e) {
+        console.error("Session check failed:", e);
+      } finally {
+        setChecking(false);
+      }
+    }
+    checkSession();
   }, [router]);
 
   if (checking) return null;

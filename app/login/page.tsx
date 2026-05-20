@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { config } from "@/lib/config";
 
 export default function LoginPage() {
@@ -9,19 +8,26 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.replace("/crm");
+    import("@/lib/supabase").then(({ supabase }) => {
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) router.replace("/crm");
+        else setChecking(false);
+      });
     });
   }, [router]);
+
+  if (checking) return null;
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim() || !password.trim()) return;
     setLoading(true);
     setError("");
+    const { supabase } = await import("@/lib/supabase");
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setError("Email ou mot de passe incorrect");

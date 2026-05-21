@@ -2,8 +2,9 @@
 import { useState } from "react";
 import { ExternalLink, Trash2, ChevronDown, ArrowLeft, Zap, Sparkles, Loader2, Copy, Check } from "lucide-react";
 import { ConversationSummary, Status, api } from "@/lib/api";
-import { getInstagramHandle, STATUS_LABELS } from "@/lib/utils";
+import { getContactLabel, getContactUrl, getConversationChannel, STATUS_LABELS } from "@/lib/utils";
 import { Avatar } from "./Avatar";
+import { ChannelBadge } from "./ChannelBadge";
 import { StatusBadge } from "./StatusBadge";
 
 const STATUSES: Status[] = ["nouveau","en_cours","page_envoyee","appel_booke","signe"];
@@ -51,7 +52,11 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
 
   const history = Array.isArray(c.history) ? c.history : [];
   const name = c.display_name || c.username || "?";
-  const instagramHandle = getInstagramHandle(c);
+  const channel = getConversationChannel(c);
+  const contactLabel = getContactLabel(c);
+  const profileUrl = getContactUrl(c, "profile");
+  const messageUrl = getContactUrl(c, "message");
+  const channelName = channel === "whatsapp" ? "WhatsApp" : "Instagram";
 
   async function handleStatus(status: Status) {
     setStatusOpen(false);
@@ -129,14 +134,19 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
             <ArrowLeft size={18} />
           </button>
         )}
-        <Avatar name={name} size="sm" />
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <Avatar name={name} size="sm" />
+          <span style={{ position: "absolute", right: -5, bottom: -5 }}>
+            <ChannelBadge conversation={c} size="sm" />
+          </span>
+        </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontWeight: 700, fontSize: 14, color: "#0a0a0a" }}>{name}</span>
             <StatusBadge status={c.status} />
           </div>
           <p style={{ fontSize: 12, color: "#8e8e8e", margin: 0 }}>
-            {instagramHandle ? `@${instagramHandle}` : c.username}
+            {contactLabel}
           </p>
         </div>
 
@@ -176,9 +186,9 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
             )}
           </div>
 
-          {/* Instagram */}
-          {instagramHandle && (
-            <a href={`https://instagram.com/${instagramHandle}`} target="_blank" rel="noreferrer"
+          {/* Channel profile */}
+          {profileUrl && (
+            <a href={profileUrl} target="_blank" rel="noreferrer"
               style={{ padding: 8, borderRadius: "50%", color: "#8e8e8e", display: "flex" }}>
               <ExternalLink size={18} />
             </a>
@@ -298,21 +308,21 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
               {copied ? <Check size={13} /> : <Copy size={13} />}
               {copied ? "Copié !" : "Copier"}
             </button>
-            {instagramHandle && (
+            {messageUrl && (
               <a
-                href={`https://ig.me/m/${instagramHandle}`}
+                href={messageUrl}
                 target="_blank"
                 rel="noreferrer"
                 style={{
                   display: "flex", alignItems: "center", gap: 6,
                   padding: "6px 14px", borderRadius: 9999,
-                  background: "linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)",
+                  background: channel === "whatsapp" ? "#25D366" : "linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)",
                   color: "#fff", fontSize: 12, fontWeight: 600,
                   textDecoration: "none",
                 }}
               >
                 <ExternalLink size={13} />
-                Ouvrir Instagram
+                Ouvrir {channelName}
               </a>
             )}
             <button
@@ -415,7 +425,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                     textAlign: isAgent ? "right" : "left",
                     margin: `${i > 0 ? "6px" : "0"} 4px 0`,
                   }}>
-                    {isAgent ? "Agent IA" : instagramHandle ? `@${instagramHandle}` : `@${c.username}`}
+                    {isAgent ? "Agent IA" : contactLabel}
                   </span>
                 )}
                 <div style={{
@@ -442,10 +452,10 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
         fontSize: 11, color: "#8e8e8e", flexShrink: 0,
       }}>
         <span>{history.length} messages · ID {c.subscriber_id || c.id.slice(0, 8)}</span>
-        {instagramHandle && (
-          <a href={`https://instagram.com/${instagramHandle}`} target="_blank" rel="noreferrer"
+        {profileUrl && (
+          <a href={profileUrl} target="_blank" rel="noreferrer"
             style={{ color: "#8e8e8e", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
-            <ExternalLink size={12} /> Instagram
+            <ExternalLink size={12} /> {channelName}
           </a>
         )}
       </div>

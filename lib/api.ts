@@ -72,6 +72,9 @@ export interface ConversationSummary {
   avatar_url?: string | null;
   history?: HistoryMessage[];
   subscriber_id?: string;
+  channel?: "instagram" | "whatsapp" | string | null;
+  external_contact_id?: string | null;
+  phone_e164?: string | null;
   automation_mode?: "auto" | "supervised" | "disabled";
   pending_message?: string | null;
   pending_message_at?: string | null;

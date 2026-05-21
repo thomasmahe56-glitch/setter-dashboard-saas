@@ -75,3 +75,34 @@ export function getInstagramHandle(conversation: ConversationSummary): string {
   if (isLikelyInstagramHandle(username)) return username;
   return "";
 }
+
+export function getConversationChannel(conversation: ConversationSummary): "instagram" | "whatsapp" {
+  return conversation.channel === "whatsapp" ? "whatsapp" : "instagram";
+}
+
+export function getWhatsappNumber(conversation: ConversationSummary): string {
+  const value = conversation.phone_e164 || conversation.external_contact_id || conversation.username || "";
+  const digits = value.replace(/\D/g, "");
+  return digits ? `+${digits}` : "";
+}
+
+export function getContactLabel(conversation: ConversationSummary): string {
+  if (getConversationChannel(conversation) === "whatsapp") {
+    const phone = getWhatsappNumber(conversation);
+    return phone ? `WhatsApp · ${phone}` : "WhatsApp";
+  }
+
+  const handle = getInstagramHandle(conversation);
+  return handle ? `@${handle}` : conversation.username;
+}
+
+export function getContactUrl(conversation: ConversationSummary, intent: "profile" | "message" = "profile"): string {
+  if (getConversationChannel(conversation) === "whatsapp") {
+    const digits = getWhatsappNumber(conversation).replace(/\D/g, "");
+    return digits ? `https://wa.me/${digits}` : "";
+  }
+
+  const handle = getInstagramHandle(conversation);
+  if (!handle) return "";
+  return intent === "message" ? `https://ig.me/m/${handle}` : `https://instagram.com/${handle}`;
+}

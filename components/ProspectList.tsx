@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { ConversationSummary, Status } from "@/lib/api";
 import { STATUS_LABELS, timeAgo } from "@/lib/utils";
 import { Avatar } from "./Avatar";
+import { ChannelBadge } from "./ChannelBadge";
 import { StatusBadge } from "./StatusBadge";
 
 const ALL: (Status | "all")[] = ["all","nouveau","en_cours","page_envoyee","appel_booke","signe"];
@@ -86,6 +87,9 @@ export function ProspectList({ conversations, selectedId, onSelect }: Props) {
             }}>
               <div style={{ position: "relative", flexShrink: 0 }}>
                 <Avatar name={name} size="md" />
+                <span style={{ position: "absolute", right: -4, bottom: -4 }}>
+                  <ChannelBadge conversation={c} size="sm" />
+                </span>
                 {c.agent_active && (
                   <span style={{
                     position: "absolute", top: -1, right: -1,

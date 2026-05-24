@@ -6,6 +6,7 @@ import {
   BarChart3,
   Bot,
   Clock3,
+  GraduationCap,
   Lightbulb,
   LogOut,
   Menu,
@@ -22,6 +23,7 @@ const TABS = [
   { href: "/relance", label: "Relance", icon: Clock3 },
   { href: "/kpi", label: "KPIs", icon: BarChart3 },
   { href: "/insights", label: "Insights", icon: Lightbulb },
+  { href: "/agent/training-center", label: "Training", icon: GraduationCap },
   { href: "/agent", label: "Agent", icon: Bot },
 ];
 
@@ -100,7 +102,7 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
 
       <nav style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 10px" }}>
         {TABS.map(({ href, label, icon: Icon }) => {
-          const active = path === href || path.startsWith(href);
+          const active = path === href || (href !== "/agent" && path.startsWith(href));
           return (
             <Link
               key={href}

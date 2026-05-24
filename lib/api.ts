@@ -115,6 +115,75 @@ export interface FollowUpSendResult {
   sent: boolean;
 }
 
+export interface TrainingProfileInput {
+  business_name: string;
+  coach_name: string;
+  niche: string;
+  offer_name: string;
+  offer_promise: string;
+  offer_format: string;
+  price: string;
+  proof_points: string[];
+  tone_rules: string[];
+  forbidden_phrases: string[];
+  calendly_url: string;
+  sales_page_url: string;
+  raw_notes: string;
+}
+
+export interface AvatarGenerateInput {
+  client_ideal: string;
+  main_problem: string;
+  current_block: string;
+  fears: string;
+  tried_before: string;
+  buying_hesitations: string;
+  desired_outcome: string;
+  bad_fit: string;
+}
+
+export interface AgentAvatar {
+  persona_summary?: string;
+  current_situation?: string;
+  desired_situation?: string;
+  pain_points?: string[];
+  fears?: string[];
+  frustrations?: string[];
+  objections?: string[];
+  buying_triggers?: string[];
+  dream_outcomes?: string[];
+  exact_words?: string[];
+  bad_fit?: string[];
+  confidence_score?: number;
+  [key: string]: unknown;
+}
+
+export interface AgentSalesRules {
+  qualification_questions?: string[];
+  buying_signals?: string[];
+  call_offer_conditions?: string[];
+  red_flags?: string[];
+  stop_conditions?: string[];
+  objection_responses?: string[];
+  follow_up_rules?: string[];
+  do_not_say?: string[];
+  escalation_rules?: string[];
+  [key: string]: unknown;
+}
+
+export interface TrainingCenterState {
+  profile: { id: string; profile: TrainingProfileInput; updated_at: string } | null;
+  avatar: { id: string; source_inputs: AvatarGenerateInput; avatar: AgentAvatar; updated_at: string } | null;
+  sales_rules: { id: string; rules: AgentSalesRules; updated_at: string } | null;
+  checklist: {
+    business_setup: boolean;
+    avatar_client: boolean;
+    regles_dm: boolean;
+    test_conversation: boolean;
+  };
+  progress_score: number;
+}
+
 export const api = {
   getConversations: () => apiFetch<Conversation[]>("/conversations"),
   getConversationSummaries: () =>
@@ -152,6 +221,37 @@ export const api = {
     }),
   sendAuto23hFollowUp: (conversationId: string) =>
     apiFetch<FollowUpSendResult>(`/follow-ups/${conversationId}/send-auto-23h`, {
+      method: "POST",
+    }),
+  getTrainingCenter: () =>
+    apiFetch<TrainingCenterState>("/agent/training-center"),
+  saveTrainingProfile: (profile: TrainingProfileInput) =>
+    apiFetch<{ success: boolean; profile: unknown }>("/agent/profile/save", {
+      method: "POST",
+      body: JSON.stringify(profile),
+    }),
+  generateAvatar: (input: AvatarGenerateInput) =>
+    apiFetch<{ avatar: AgentAvatar }>("/agent/avatar/generate", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  saveAvatar: (source_inputs: AvatarGenerateInput, avatar: AgentAvatar) =>
+    apiFetch<{ success: boolean; avatar: unknown }>("/agent/avatar/save", {
+      method: "POST",
+      body: JSON.stringify({ source_inputs, avatar }),
+    }),
+  generateSalesRules: (avatar?: AgentAvatar, profile?: TrainingProfileInput) =>
+    apiFetch<{ rules: AgentSalesRules }>("/agent/sales-rules/generate", {
+      method: "POST",
+      body: JSON.stringify({ avatar, profile }),
+    }),
+  saveSalesRules: (rules: AgentSalesRules) =>
+    apiFetch<{ success: boolean; sales_rules: unknown }>("/agent/sales-rules/save", {
+      method: "POST",
+      body: JSON.stringify({ rules }),
+    }),
+  rebuildAgentPrompt: () =>
+    apiFetch<{ success: boolean; prompt_version_id: string }>("/agent/prompt/rebuild", {
       method: "POST",
     }),
   logout: async () => {

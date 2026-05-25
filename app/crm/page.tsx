@@ -10,9 +10,9 @@ import { ConversationPanel } from "@/components/ConversationPanel";
 
 function CRMInitialSkeleton() {
   return (
-    <div style={{ flex: 1, padding: 24, overflow: "hidden", display: "flex" }}>
-      <div style={{ display: "flex", width: "100%", overflow: "hidden", borderRadius: 24, background: "#fff", boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-        <div style={{ width: 300, minWidth: 300, borderRight: "1px solid #f0f0f0", padding: 16 }}>
+    <div className="crm-page-body">
+      <div className="crm-card">
+        <div className="crm-sidebar-skeleton">
           <div className="skeleton-shimmer" style={{ width: 110, height: 18, borderRadius: 6, marginBottom: 20 }} />
           <div className="skeleton-shimmer" style={{ width: "100%", height: 34, borderRadius: 9999, marginBottom: 18 }} />
           {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -92,32 +92,22 @@ export default function CRMPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#f5f5f5", paddingLeft: 72 }}>
+    <div className="crm-page">
       <NavBar lastRefresh={lastRefresh} onRefresh={refresh} />
       {loading ? (
         <CRMInitialSkeleton />
       ) : error ? (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#ef4444", fontSize: 13 }}>{error}</div>
       ) : (
-        <div style={{ flex: 1, padding: 24, overflow: "hidden", display: "flex" }}>
-          <div style={{ display: "flex", width: "100%", overflow: "hidden", borderRadius: 24, background: "#fff", boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
+        <div className="crm-page-body">
+          <div className="crm-card">
             {/* Sidebar — toujours visible sur desktop, caché sur mobile si panel ouvert */}
-            <div style={{
-              width: 300,
-              minWidth: 300,
-              borderRight: "1px solid #f0f0f0",
-              display: "flex",
-              flexDirection: "column",
-              flexShrink: 0,
-              overflow: "hidden",
-            }}
-              className={mobilePanel ? "hidden md:flex" : "flex"}
-            >
+            <div className={`crm-sidebar ${mobilePanel ? "crm-mobile-hidden" : ""}`}>
               <ProspectList conversations={conversations} selectedId={selectedId} onSelect={handleSelect} />
             </div>
 
             {/* Panel droit — toujours visible sur desktop */}
-            <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <div className={`crm-detail ${!mobilePanel && !selected ? "" : ""} ${mobilePanel ? "crm-mobile-visible" : "crm-mobile-detail-idle"}`}>
               {selected ? (
                 <ConversationPanel
                   conversation={selected}

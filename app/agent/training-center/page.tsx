@@ -458,10 +458,10 @@ export default function TrainingCenterPage() {
   }
 
   return (
-    <main style={{ minHeight: "100vh", background: "#f5f7fb", paddingLeft: 72 }}>
+    <main className="app-page training-center-page" style={{ minHeight: "100vh", background: "#f5f7fb", paddingLeft: 72 }}>
       <NavBar />
-      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "28px 28px 44px" }}>
-        <header style={styles.header}>
+      <div className="app-page-inner training-inner" style={{ maxWidth: 1440, margin: "0 auto", padding: "28px 28px 44px" }}>
+        <header className="training-header" style={styles.header}>
           <div>
             <div style={styles.titleRow}>
               <GraduationCap size={24} color="#0095F6" />
@@ -489,8 +489,8 @@ export default function TrainingCenterPage() {
           </div>
         )}
 
-        <section style={styles.shell}>
-          <aside style={styles.stepsPane}>
+        <section className="training-shell" style={styles.shell}>
+          <aside className="training-steps-pane" style={styles.stepsPane}>
             <div style={styles.progressBlock}>
               <span style={styles.progressLabel}>Progression</span>
               <strong style={styles.progressValue}>{progress}%</strong>
@@ -525,7 +525,7 @@ export default function TrainingCenterPage() {
             </nav>
           </aside>
 
-          <section style={styles.workPane}>
+          <section className="training-work-pane" style={styles.workPane}>
             {activeStep === "business" && (
               <BusinessStep
                 profile={profile}
@@ -619,7 +619,7 @@ export default function TrainingCenterPage() {
             </div>
           </section>
 
-          <aside style={styles.previewPane}>
+          <aside className="training-preview-pane" style={styles.previewPane}>
             <PreviewPanel profile={profile} avatar={avatar} rules={rules} activeStep={activeStep} />
           </aside>
         </section>

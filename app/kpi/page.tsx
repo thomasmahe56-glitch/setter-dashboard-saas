@@ -20,11 +20,11 @@ const FUNNEL: { status: Status; icon: React.ElementType }[] = [
 
 function KPISkeleton() {
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "24px 16px" }}>
-      <div style={{ maxWidth: 900, margin: "0 auto" }}>
+    <div className="app-scroll-page">
+      <div className="app-page-inner kpi-inner">
         <div className="skeleton-shimmer" style={{ width: 170, height: 24, borderRadius: 6, marginBottom: 8 }} />
         <div className="skeleton-shimmer" style={{ width: 230, height: 12, borderRadius: 6, marginBottom: 20 }} />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 16 }}>
+        <div className="kpi-card-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 16 }}>
           {[0, 1, 2, 3, 4].map((i) => (
             <div key={i} style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
               <div className="skeleton-shimmer" style={{ width: 32, height: 32, borderRadius: 8, marginBottom: 16 }} />
@@ -65,19 +65,19 @@ export default function KPIPage() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#fafafa", paddingLeft: 72 }}>
+    <div className="app-page">
       <NavBar lastRefresh={lastRefresh} onRefresh={refresh} />
       {loading ? (
         <KPISkeleton />
       ) : (
-        <div style={{ flex: 1, overflowY: "auto", padding: "24px 16px" }}>
-          <div style={{ maxWidth: 900, margin: "0 auto" }}>
+        <div className="app-scroll-page">
+          <div className="app-page-inner kpi-inner">
 
-            <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 4px" }}>Performance</h1>
+            <h1 className="app-page-title" style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 4px" }}>Performance</h1>
             <p style={{ fontSize: 13, color: "#8e8e8e", margin: "0 0 20px" }}>Vue d'ensemble du pipeline</p>
 
             {/* KPI Cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 16 }}>
+            <div className="kpi-card-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 16 }}>
               {FUNNEL.map(({ status, icon: Icon }) => {
                 const count = counts[status];
                 const pct = total > 0 ? Math.round((count / total) * 100) : 0;
@@ -101,7 +101,7 @@ export default function KPIPage() {
             </div>
 
             {/* Funnel + Stats */}
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, marginBottom: 16 }}>
+            <div className="kpi-funnel-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, marginBottom: 16 }}>
               <div style={card}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                   <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0a0a0a", margin: 0 }}>Funnel de conversion</h2>
@@ -158,7 +158,7 @@ export default function KPIPage() {
                 {recent.map((c) => {
                   const instagramHandle = getInstagramHandle(c);
                   return (
-                  <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div key={c.id} className="kpi-recent-row" style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <Avatar name={instagramHandle || c.username || "?"} size="sm" />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: 13, fontWeight: 700, color: "#0a0a0a", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

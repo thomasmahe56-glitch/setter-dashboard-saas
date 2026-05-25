@@ -43,6 +43,7 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
 
   return (
     <aside
+      className="app-nav"
       style={{
         position: "fixed",
         inset: "0 auto 0 0",
@@ -57,7 +58,7 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
         boxShadow: open ? "8px 0 28px rgba(15,23,42,0.08)" : "none",
       }}
     >
-      <div style={{ height: 64, display: "flex", alignItems: "center", padding: "0 16px", gap: 12 }}>
+      <div className="app-nav-brand" style={{ height: 64, display: "flex", alignItems: "center", padding: "0 16px", gap: 12 }}>
         <AngelosAvatar size={40} radius={10} />
         {open && (
           <span
@@ -76,6 +77,7 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
       </div>
 
       <button
+        className="app-nav-toggle"
         type="button"
         onClick={() => setOpen((value) => !value)}
         title={open ? "Fermer le menu" : "Ouvrir le menu"}
@@ -98,12 +100,13 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
         {open ? <X size={18} /> : <Menu size={18} />}
       </button>
 
-      <nav style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 10px" }}>
+      <nav className="app-nav-links" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 10px" }}>
         {TABS.map(({ href, label, icon: Icon }) => {
           const active = path === href || (href !== "/agent" && path.startsWith(href));
           return (
             <Link
               key={href}
+              className="app-nav-link"
               href={href}
               title={label}
               aria-label={label}
@@ -132,7 +135,7 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
 
       <div style={{ flex: 1 }} />
 
-      <div style={{ padding: "0 10px 14px", display: "flex", flexDirection: "column", gap: 4 }}>
+      <div className="app-nav-actions" style={{ padding: "0 10px 14px", display: "flex", flexDirection: "column", gap: 4 }}>
         {lastRefresh && open && (
           <div style={{ fontSize: 12, color: "#8e8e8e", padding: "0 12px 6px" }}>
             MAJ {lastRefresh.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}

@@ -122,9 +122,9 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#fff" }}>
+    <div className="conversation-panel" style={{ display: "flex", flexDirection: "column", height: "100%", background: "#fff" }}>
       {/* Header */}
-      <div style={{
+      <div className="conversation-header" style={{
         display: "flex", alignItems: "center", gap: 12,
         padding: "12px 24px", borderBottom: "1px solid #f0f0f0",
         background: "#fff", flexShrink: 0,
@@ -151,7 +151,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
         </div>
 
         {/* Actions */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        <div className="conversation-actions" style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {/* Status dropdown */}
           <div style={{ position: "relative" }}>
             <button onClick={() => setStatusOpen(!statusOpen)} style={{
@@ -232,7 +232,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
       </div>
 
       {/* Mode selector */}
-      <div style={{
+      <div className="conversation-mode" style={{
         display: "flex", alignItems: "center", gap: 6,
         padding: "6px 24px", borderBottom: "1px solid #f5f5f5",
         background: "#fafafa", flexShrink: 0,
@@ -263,7 +263,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
 
       {/* Agent banner */}
       {c.agent_active && (
-        <div style={{
+        <div className="agent-active-banner" style={{
           display: "flex", alignItems: "center", gap: 8,
           margin: "16px 24px 0",
           padding: "8px 12px", borderRadius: 16,
@@ -277,7 +277,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
 
       {/* Pending message banner */}
       {c.pending_message && (
-        <div style={{
+        <div className="pending-message-banner" style={{
           margin: "12px 24px 0", padding: "12px 16px", borderRadius: 16,
           background: "#fffbeb", border: "1px solid #fde68a", flexShrink: 0,
         }}>
@@ -292,7 +292,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
           <p style={{ fontSize: 13, color: "#0a0a0a", margin: "0 0 10px", lineHeight: 1.5 }}>
             {c.pending_message}
           </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className="pending-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button
               type="button"
               onClick={handleCopyPending}
@@ -395,7 +395,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
       )}
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px", display: "flex", flexDirection: "column", gap: 4 }}>
+      <div className="conversation-messages" style={{ flex: 1, overflowY: "auto", padding: "16px 24px", display: "flex", flexDirection: "column", gap: 4 }}>
         {loadingDetails ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#8e8e8e", fontSize: 12 }}>
@@ -418,7 +418,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
           const showLabel = !prev || prev.role !== msg.role;
           return (
             <div key={i} style={{ display: "flex", justifyContent: isAgent ? "flex-end" : "flex-start" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: "70%" }}>
+              <div className="message-bubble-wrap" style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: "70%" }}>
                 {showLabel && (
                   <span style={{
                     fontSize: 10, color: "#8e8e8e",
@@ -446,7 +446,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
       </div>
 
       {/* Footer */}
-      <div style={{
+      <div className="conversation-footer" style={{
         padding: "8px 24px", borderTop: "1px solid #f0f0f0",
         display: "flex", justifyContent: "space-between",
         fontSize: 11, color: "#8e8e8e", flexShrink: 0,

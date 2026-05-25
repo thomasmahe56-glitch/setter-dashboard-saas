@@ -11,11 +11,11 @@ import { getInstagramHandle } from "@/lib/utils";
 
 function RelanceSkeleton() {
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "24px 16px" }}>
-      <div style={{ maxWidth: 980, margin: "0 auto" }}>
+    <div className="app-scroll-page">
+      <div className="app-page-inner relance-inner">
         <div className="skeleton-shimmer" style={{ width: 180, height: 26, borderRadius: 8, marginBottom: 8 }} />
         <div className="skeleton-shimmer" style={{ width: 320, height: 12, borderRadius: 6, marginBottom: 20 }} />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
+        <div className="relance-step-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
           {[0, 1, 2].map((i) => <div key={i} className="skeleton-shimmer" style={{ height: 120, borderRadius: 16 }} />)}
         </div>
         <div className="skeleton-shimmer" style={{ height: 280, borderRadius: 16 }} />
@@ -115,18 +115,18 @@ export default function RelancePage() {
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#fafafa", paddingLeft: 72 }}>
+    <div className="app-page">
       <NavBar lastRefresh={lastRefresh} onRefresh={refresh} />
       {loading ? (
         <RelanceSkeleton />
       ) : error ? (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#ef4444", fontSize: 13 }}>{error}</div>
       ) : (
-        <div style={{ flex: 1, overflowY: "auto", padding: "24px 16px" }}>
-          <div style={{ maxWidth: 980, margin: "0 auto" }}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
+        <div className="app-scroll-page">
+          <div className="app-page-inner relance-inner">
+            <div className="app-page-heading" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
               <div>
-                <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 4px" }}>Relance</h1>
+                <h1 className="app-page-title" style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 4px" }}>Relance</h1>
                 <p style={{ fontSize: 13, color: "#8e8e8e", margin: 0 }}>
                   Séquence prévue : automatique à 23 h, puis assistée par l'IA à J+3 et J+10.
                 </p>
@@ -142,7 +142,7 @@ export default function RelancePage() {
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12, marginBottom: 16 }}>
+            <div className="relance-step-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12, marginBottom: 16 }}>
               {stepCards.map(({ title, label, color, icon: Icon, body }) => (
                 <div key={title} style={card}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
@@ -186,7 +186,7 @@ export default function RelancePage() {
                   const isSent = sentIds[item.conversation_id];
                   return (
                     <div key={item.conversation_id} style={{ padding: "12px 0", borderTop: "1px solid #f0f0f0" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div className="relance-row" style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <Avatar name={name} size="sm" />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
@@ -213,7 +213,7 @@ export default function RelancePage() {
                             {item.message || "Aucun dernier message"} · {item.hours_since_user} h depuis le dernier message prospect
                           </p>
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                        <div className="relance-actions" style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                           {item.stage === "auto_23h" ? (
                             <button type="button" onClick={() => handleSendAuto23h(item)} disabled={isSending || isSent} style={{
                               display: "flex", alignItems: "center", gap: 5,
@@ -257,7 +257,7 @@ export default function RelancePage() {
                         </div>
                       </div>
                       {preview && (
-                        <div style={{
+                        <div className="relance-preview" style={{
                           margin: "10px 0 0 48px", padding: "10px 12px",
                           borderRadius: 12, background: "#f5f5f5",
                           fontSize: 13, lineHeight: 1.5, color: "#262626",

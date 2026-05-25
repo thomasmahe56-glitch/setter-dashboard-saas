@@ -1,6 +1,5 @@
 "use client";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Users, MessageCircle, Send, Phone, Award, TrendingUp } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
@@ -40,8 +39,7 @@ function KPISkeleton() {
 }
 
 export default function KPIPage() {
-  const router = useRouter();
-  const { conversations, loading, error, lastRefresh, refresh } = useConversations();
+  const { conversations, loading, lastRefresh, refresh } = useConversations();
 
   useEffect(() => {
     createClient().auth.getSession().then(({ data }) => {

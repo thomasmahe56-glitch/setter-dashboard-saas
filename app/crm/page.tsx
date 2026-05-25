@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useConversations } from "@/hooks/useConversations";
 import { api, Conversation, ConversationSummary } from "@/lib/api";
@@ -37,7 +36,6 @@ function CRMInitialSkeleton() {
 }
 
 export default function CRMPage() {
-  const router = useRouter();
   const { conversations, setConversations, loading, error, lastRefresh, refresh } = useConversations();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<Conversation | null>(null);

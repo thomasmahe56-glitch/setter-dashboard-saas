@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  ChevronDown,
   FileJson,
   GraduationCap,
   Loader2,
@@ -18,6 +17,9 @@ import {
   Wand2,
 } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
+import { SectionHeader } from "@/components/training-center/SectionHeader";
+import { TrainingProgress } from "@/components/training-center/TrainingProgress";
+import { AdvancedToggle, EditableList, EmptyState, Field, JsonEditor, PromptField, TextField } from "@/components/training-center/fields";
 import {
   AgentAvatar,
   AgentSalesRules,
@@ -28,6 +30,23 @@ import {
   TrainingProfileInput,
 } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
+import {
+  buildTrainingChecklist,
+  calculateTrainingProgress,
+  getAngelosLevel,
+  getStringList,
+  hasMinimumAvatarInput,
+  isAvatarComplete,
+  isAvatarMeaningful,
+  isBusinessComplete,
+  isRulesComplete,
+  isRulesMeaningful,
+  listToText,
+  parseJsonObject,
+  prettyJson,
+  textToList,
+  wasPromptRebuiltFromTrainingCenter,
+} from "@/lib/training-center/utils";
 
 const EMPTY_PROFILE: TrainingProfileInput = {
   business_name: "",
@@ -97,38 +116,46 @@ const STEPS: {
   },
 ];
 
-const AVATAR_LABELS: Record<keyof AvatarGenerateInput, { label: string; hint: string }> = {
+const AVATAR_LABELS: Record<keyof AvatarGenerateInput, { label: string; hint: string; placeholder: string }> = {
   client_ideal: {
     label: "Client idéal",
     hint: "Qui doit absolument se reconnaître dans tes DM ?",
+    placeholder: "Ex : coach sportif indépendant qui reçoit des leads Instagram mais perd du temps à les qualifier.",
   },
   main_problem: {
     label: "Problème principal",
     hint: "Le problème qu'il exprime le plus souvent.",
+    placeholder: "Ex : il répond trop tard, manque de structure en DM et laisse filer des prospects chauds.",
   },
   current_block: {
     label: "Blocage actuel",
     hint: "Ce qui l'empêche d'avancer maintenant.",
+    placeholder: "Ex : il ne sait pas quelles questions poser avant de proposer un appel.",
   },
   fears: {
     label: "Peurs",
     hint: "Ce qu'il craint si rien ne change.",
+    placeholder: "Ex : passer pour quelqu'un de trop commercial, perdre des leads, automatiser trop tôt.",
   },
   tried_before: {
     label: "Déjà essayé",
     hint: "Solutions, méthodes ou accompagnements déjà tentés.",
+    placeholder: "Ex : ManyChat, réponses manuelles, scripts copiés-collés, setter freelance.",
   },
   buying_hesitations: {
     label: "Freins à l'achat",
     hint: "Prix, temps, confiance, peur d'échouer.",
+    placeholder: "Ex : peur que l'IA ne respecte pas son ton, budget, manque de confiance, peur du spam.",
   },
   desired_outcome: {
     label: "Résultat désiré",
     hint: "La transformation concrète qu'il veut.",
+    placeholder: "Ex : transformer ses conversations Instagram en appels qualifiés sans passer 2h par jour en DM.",
   },
   bad_fit: {
     label: "Mauvais fit",
     hint: "Les profils qu'Angelos doit filtrer vite.",
+    placeholder: "Ex : personnes non sérieuses, curieux gratuits, prospects hors budget, demandes hors périmètre.",
   },
 };
 
@@ -155,43 +182,12 @@ const RULE_FIELDS: { key: keyof AgentSalesRules; label: string; empty: string }[
   { key: "escalation_rules", label: "Escalade humaine", empty: "Aucune règle d'escalade." },
 ];
 
-function listToText(items: string[] | undefined): string {
-  return (items || []).join("\n");
-}
-
-function textToList(value: string): string[] {
-  return value
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function prettyJson(value: unknown): string {
-  return JSON.stringify(value || {}, null, 2);
-}
-
-function parseJsonObject<T>(value: string): T {
-  const parsed = JSON.parse(value) as T;
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("JSON_OBJECT_REQUIRED");
-  }
-  return parsed;
-}
-
-function getStringList(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string")
-    : [];
-}
-
 export default function TrainingCenterPage() {
   const [activeStep, setActiveStep] = useState<StepId>("business");
   const [profile, setProfile] = useState<TrainingProfileInput>(EMPTY_PROFILE);
   const [avatarInput, setAvatarInput] = useState<AvatarGenerateInput>(EMPTY_AVATAR_INPUT);
   const [avatarJson, setAvatarJson] = useState("{}");
   const [rulesJson, setRulesJson] = useState("{}");
-  const [progress, setProgress] = useState(0);
-  const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [generatingAvatar, setGeneratingAvatar] = useState(false);
@@ -226,8 +222,6 @@ export default function TrainingCenterPage() {
       setAvatarInput({ ...EMPTY_AVATAR_INPUT, ...(data.avatar?.source_inputs || {}) });
       setAvatarJson(prettyJson(data.avatar?.avatar || {}));
       setRulesJson(prettyJson(data.sales_rules?.rules || {}));
-      setProgress(data.progress_score || 0);
-      setChecklist(data.checklist || {});
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Chargement impossible" });
     } finally {
@@ -260,19 +254,13 @@ export default function TrainingCenterPage() {
   }, [chatMessages, chatLoading]);
 
   const avatar = useMemo(() => {
-    try {
-      return parseJsonObject<AgentAvatar>(avatarJson);
-    } catch {
-      return {};
-    }
+    const parsed = parseJsonObject<AgentAvatar>(avatarJson);
+    return parsed.ok ? parsed.value : {};
   }, [avatarJson]);
 
   const rules = useMemo(() => {
-    try {
-      return parseJsonObject<AgentSalesRules>(rulesJson);
-    } catch {
-      return {};
-    }
+    const parsed = parseJsonObject<AgentSalesRules>(rulesJson);
+    return parsed.ok ? parsed.value : {};
   }, [rulesJson]);
 
   const businessScore = useMemo(() => {
@@ -287,6 +275,25 @@ export default function TrainingCenterPage() {
     ];
     return fields.filter((value) => value.trim()).length;
   }, [profile]);
+  const promptRebuilt = useMemo(() => wasPromptRebuiltFromTrainingCenter(promptVersions), [promptVersions]);
+  const trainingProgress = useMemo(() => calculateTrainingProgress({
+    profile,
+    avatar,
+    rules,
+    promptRebuilt,
+    chatMessages,
+  }), [profile, avatar, rules, promptRebuilt, chatMessages]);
+  const trainingChecklist = useMemo(() => buildTrainingChecklist({
+    profile,
+    avatar,
+    rules,
+    promptRebuilt,
+    chatMessages,
+  }), [profile, avatar, rules, promptRebuilt, chatMessages]);
+  const angelosLevel = useMemo(() => getAngelosLevel(trainingProgress), [trainingProgress]);
+  const canGenerateAvatar = hasMinimumAvatarInput(avatarInput);
+  const canGenerateRules = isAvatarMeaningful(avatar);
+  const canRebuildPrompt = isBusinessComplete(profile) && isAvatarComplete(avatar) && isRulesComplete(rules);
 
   const actionDisabled = loading || savingProfile || generatingAvatar || savingAvatar || generatingRules || savingRules || rebuilding || chatLoading || Boolean(restoreLoading);
   const currentIndex = STEPS.findIndex((step) => step.id === activeStep);
@@ -322,8 +329,6 @@ export default function TrainingCenterPage() {
     setNotice(null);
     try {
       await api.saveTrainingProfile(profile);
-      setChecklist((current) => ({ ...current, business_setup: true }));
-      setProgress((current) => Math.max(current, 25));
       setNotice({ kind: "success", text: "Business Setup enregistré" });
       setActiveStep("avatar-input");
     } catch (error) {
@@ -334,6 +339,10 @@ export default function TrainingCenterPage() {
   }
 
   async function handleGenerateAvatar() {
+    if (!canGenerateAvatar) {
+      setNotice({ kind: "error", text: "Complète d'abord client idéal, problème principal et résultat désiré." });
+      return;
+    }
     setGeneratingAvatar(true);
     setNotice(null);
     try {
@@ -352,10 +361,12 @@ export default function TrainingCenterPage() {
     setSavingAvatar(true);
     setNotice(null);
     try {
-      const nextAvatar = parseJsonObject<AgentAvatar>(avatarJson);
-      await api.saveAvatar(avatarInput, nextAvatar);
-      setChecklist((current) => ({ ...current, avatar_client: true }));
-      setProgress((current) => Math.max(current, 50));
+      const parsed = parseJsonObject<AgentAvatar>(avatarJson);
+      if (!parsed.ok) {
+        setNotice({ kind: "error", text: parsed.message });
+        return;
+      }
+      await api.saveAvatar(avatarInput, parsed.value);
       setNotice({ kind: "success", text: "Avatar Client enregistré" });
       setActiveStep("rules");
     } catch (error) {
@@ -366,11 +377,19 @@ export default function TrainingCenterPage() {
   }
 
   async function handleGenerateRules() {
+    if (!canGenerateRules) {
+      setNotice({ kind: "error", text: "Génère et complète d'abord l'avatar client avant de créer les règles DM." });
+      return;
+    }
     setGeneratingRules(true);
     setNotice(null);
     try {
-      const nextAvatar = parseJsonObject<AgentAvatar>(avatarJson);
-      const data = await api.generateSalesRules(nextAvatar, profile);
+      const parsed = parseJsonObject<AgentAvatar>(avatarJson);
+      if (!parsed.ok) {
+        setNotice({ kind: "error", text: parsed.message });
+        return;
+      }
+      const data = await api.generateSalesRules(parsed.value, profile);
       setRulesJson(prettyJson(data.rules));
       setNotice({ kind: "success", text: "Règles DM générées" });
       setActiveStep("rules");
@@ -385,10 +404,12 @@ export default function TrainingCenterPage() {
     setSavingRules(true);
     setNotice(null);
     try {
-      const nextRules = parseJsonObject<AgentSalesRules>(rulesJson);
-      await api.saveSalesRules(nextRules);
-      setChecklist((current) => ({ ...current, regles_dm: true }));
-      setProgress((current) => Math.max(current, 75));
+      const parsed = parseJsonObject<AgentSalesRules>(rulesJson);
+      if (!parsed.ok) {
+        setNotice({ kind: "error", text: parsed.message });
+        return;
+      }
+      await api.saveSalesRules(parsed.value);
       setNotice({ kind: "success", text: "Règles DM enregistrées" });
       setActiveStep("launch");
     } catch (error) {
@@ -399,11 +420,14 @@ export default function TrainingCenterPage() {
   }
 
   async function handleRebuildPrompt() {
+    if (!canRebuildPrompt) {
+      setNotice({ kind: "error", text: "Complète le profil business, valide l'avatar et enregistre les règles DM avant de reconstruire le prompt." });
+      return;
+    }
     setRebuilding(true);
     setNotice(null);
     try {
       await api.rebuildAgentPrompt();
-      setProgress(100);
       setNotice({ kind: "success", text: "Prompt Angelos reconstruit et activé" });
       await loadPromptVersions();
     } catch (error) {
@@ -468,7 +492,10 @@ export default function TrainingCenterPage() {
               <h1 style={styles.title}>Training Center</h1>
             </div>
             <p style={styles.subtitle}>
-              Entraîne Angelos à comprendre ton business, ton client idéal et ta manière de vendre.
+              En 10 minutes, Angelos comprend ton offre, ton client idéal et ta manière de vendre. Plus tu l'entraînes, plus ses réponses deviennent précises, humaines et proches de ton style.
+            </p>
+            <p style={styles.microCopy}>
+              Réponds simplement avec tes mots. Angelos structure ensuite ton avatar et tes règles DM.
             </p>
           </div>
           <button
@@ -491,19 +518,17 @@ export default function TrainingCenterPage() {
 
         <section className="training-shell" style={styles.shell}>
           <aside className="training-steps-pane" style={styles.stepsPane}>
-            <div style={styles.progressBlock}>
-              <span style={styles.progressLabel}>Progression</span>
-              <strong style={styles.progressValue}>{progress}%</strong>
-              <div style={styles.progressTrack}>
-                <div style={{ ...styles.progressFill, width: `${progress}%` }} />
-              </div>
-              <span style={styles.progressHint}>{businessScore}/7 champs business essentiels</span>
-            </div>
+            <TrainingProgress
+              progress={trainingProgress}
+              businessScore={businessScore}
+              level={angelosLevel}
+              checklist={trainingChecklist}
+            />
 
             <nav style={styles.stepList}>
               {STEPS.map((step, index) => {
                 const active = step.id === activeStep;
-                const done = stepDone(step.id, checklist, progress);
+                const done = stepDone(step.id, trainingChecklist);
                 return (
                   <button
                     key={step.id}
@@ -539,7 +564,8 @@ export default function TrainingCenterPage() {
             {activeStep === "avatar-input" && (
               <AvatarInputStep
                 input={avatarInput}
-                disabled={actionDisabled}
+                disabled={actionDisabled || !canGenerateAvatar}
+                helperText={canGenerateAvatar ? null : "Complète d'abord client idéal, problème principal et résultat désiré."}
                 generating={generatingAvatar}
                 onChange={updateAvatarInput}
                 onGenerate={handleGenerateAvatar}
@@ -554,6 +580,8 @@ export default function TrainingCenterPage() {
                 disabled={actionDisabled}
                 saving={savingAvatar}
                 generatingRules={generatingRules}
+                canGenerateRules={canGenerateRules}
+                generateRulesHelp={canGenerateRules ? null : "Génère et complète d'abord l'avatar client."}
                 onAvatarChange={updateAvatarField}
                 onJsonChange={setAvatarJson}
                 onToggleAdvanced={() => setShowAdvanced((value) => !value)}
@@ -570,6 +598,8 @@ export default function TrainingCenterPage() {
                 disabled={actionDisabled}
                 saving={savingRules}
                 generating={generatingRules}
+                canGenerate={canGenerateRules}
+                generateHelp={canGenerateRules ? null : "Valide l'avatar avant de générer les règles DM."}
                 onRulesChange={updateRulesField}
                 onJsonChange={setRulesJson}
                 onToggleAdvanced={() => setShowAdvanced((value) => !value)}
@@ -584,6 +614,8 @@ export default function TrainingCenterPage() {
                 avatar={avatar}
                 rules={rules}
                 disabled={actionDisabled}
+                canRebuild={canRebuildPrompt}
+                rebuildHelp={canRebuildPrompt ? null : "Complète le profil business, l'avatar et les règles DM avant le rebuild."}
                 rebuilding={rebuilding}
                 messages={chatMessages}
                 input={chatInput}
@@ -656,10 +688,10 @@ function BusinessStep({
       />
 
       <div style={styles.fieldGrid}>
-        <Field label="Nom du business" value={profile.business_name} onChange={(v) => onChange("business_name", v)} placeholder="Ex : TrainToRehab" />
-        <Field label="Coach / fondateur" value={profile.coach_name} onChange={(v) => onChange("coach_name", v)} placeholder="Ex : Thomas" />
-        <Field label="Niche" value={profile.niche} onChange={(v) => onChange("niche", v)} placeholder="Ex : sportifs blessés, coachs, freelances..." />
-        <Field label="Nom de l'offre" value={profile.offer_name} onChange={(v) => onChange("offer_name", v)} placeholder="Nom ou format principal" />
+        <Field label="Nom du business" value={profile.business_name} onChange={(v) => onChange("business_name", v)} placeholder="Ex : TrainToRehab, Studio Fit Lead, Rehab Coach Academy" />
+        <Field label="Coach / fondateur" value={profile.coach_name} onChange={(v) => onChange("coach_name", v)} placeholder="Ex : Thomas, coach principal qui répond aux prospects" />
+        <Field label="Niche" value={profile.niche} onChange={(v) => onChange("niche", v)} placeholder="Ex : coachs sportifs qui veulent transformer leurs leads Instagram en appels qualifiés." />
+        <Field label="Nom de l'offre" value={profile.offer_name} onChange={(v) => onChange("offer_name", v)} placeholder="Ex : accompagnement 8 semaines pour structurer acquisition et closing Instagram." />
       </div>
 
       <div style={styles.focusArea}>
@@ -668,30 +700,30 @@ function BusinessStep({
           value={profile.offer_promise}
           rows={4}
           onChange={(v) => onChange("offer_promise", v)}
-          placeholder="Ce que l'accompagnement aide concrètement à obtenir."
+          placeholder="Ex : passer de conversations Instagram dispersées à 5-10 appels qualifiés par semaine sans passer 2h/jour en DM."
         />
         <TextField
           label="Format / accompagnement"
           value={profile.offer_format}
           rows={4}
           onChange={(v) => onChange("offer_format", v)}
-          placeholder="Durée, rythme, support, appels, contenu, suivi."
+          placeholder="Ex : 8 semaines, 1 appel par semaine, support WhatsApp, scripts DM, dashboard de suivi et feedback hebdomadaire."
         />
         <TextField
           label="Prix / modalités"
           value={profile.price}
           rows={3}
           onChange={(v) => onChange("price", v)}
-          placeholder="Prix exact ou fourchette, paiement, quand en parler."
+          placeholder="Ex : 1 500€ à 3 000€, paiement en 1 ou 3 fois. Ne parler du prix qu'après qualification."
         />
       </div>
 
       <details style={styles.details}>
         <summary style={styles.summary}>Champs avancés</summary>
         <div style={styles.advancedGrid}>
-          <TextField label="Preuves" value={listToText(profile.proof_points)} rows={4} onChange={(v) => onChange("proof_points", textToList(v))} placeholder="Une preuve par ligne." />
+          <TextField label="Preuves" value={listToText(profile.proof_points)} rows={4} onChange={(v) => onChange("proof_points", textToList(v))} placeholder="Ex : +42 appels qualifiés en 30 jours pour un coach. Une preuve par ligne." />
           <TextField label="Ton à respecter" value={listToText(profile.tone_rules)} rows={4} onChange={(v) => onChange("tone_rules", textToList(v))} placeholder="Une règle de ton par ligne." />
-          <TextField label="À ne pas dire" value={listToText(profile.forbidden_phrases)} rows={4} onChange={(v) => onChange("forbidden_phrases", textToList(v))} placeholder="Une formulation interdite par ligne." />
+          <TextField label="À ne pas dire" value={listToText(profile.forbidden_phrases)} rows={4} onChange={(v) => onChange("forbidden_phrases", textToList(v))} placeholder="Ex : promesses garanties, discours agressif, relances culpabilisantes. Une formulation par ligne." />
           <Field label="Lien appel" value={profile.calendly_url} onChange={(v) => onChange("calendly_url", v)} placeholder="https://calendly.com/..." />
           <Field label="Lien page de vente" value={profile.sales_page_url} onChange={(v) => onChange("sales_page_url", v)} placeholder="https://..." />
           <TextField label="Notes libres" value={profile.raw_notes} rows={5} onChange={(v) => onChange("raw_notes", v)} placeholder="Contexte utile, subtilités, cas particuliers." />
@@ -704,12 +736,14 @@ function BusinessStep({
 function AvatarInputStep({
   input,
   disabled,
+  helperText,
   generating,
   onChange,
   onGenerate,
 }: {
   input: AvatarGenerateInput;
   disabled: boolean;
+  helperText: string | null;
   generating: boolean;
   onChange: (key: keyof AvatarGenerateInput, value: string) => void;
   onGenerate: () => void;
@@ -727,6 +761,7 @@ function AvatarInputStep({
           </button>
         }
       />
+      {helperText && <p style={styles.actionHelp}>{helperText}</p>}
 
       <div style={styles.promptGrid}>
         {Object.entries(AVATAR_LABELS).map(([key, item]) => (
@@ -734,6 +769,7 @@ function AvatarInputStep({
             key={key}
             label={item.label}
             hint={item.hint}
+            placeholder={item.placeholder}
             value={input[key as keyof AvatarGenerateInput]}
             onChange={(value) => onChange(key as keyof AvatarGenerateInput, value)}
           />
@@ -750,6 +786,8 @@ function AvatarReviewStep({
   disabled,
   saving,
   generatingRules,
+  canGenerateRules,
+  generateRulesHelp,
   onAvatarChange,
   onJsonChange,
   onToggleAdvanced,
@@ -762,6 +800,8 @@ function AvatarReviewStep({
   disabled: boolean;
   saving: boolean;
   generatingRules: boolean;
+  canGenerateRules: boolean;
+  generateRulesHelp: string | null;
   onAvatarChange: (key: keyof AgentAvatar, value: string | string[] | number) => void;
   onJsonChange: (value: string) => void;
   onToggleAdvanced: () => void;
@@ -782,29 +822,33 @@ function AvatarReviewStep({
         }
       />
 
+      {!isAvatarMeaningful(avatar) && (
+        <EmptyState text="Réponds aux questions précédentes puis clique sur Générer l'avatar." />
+      )}
+
       <div style={styles.focusArea}>
-        <TextField
-          label="Résumé persona"
-          value={typeof avatar.persona_summary === "string" ? avatar.persona_summary : ""}
-          rows={4}
-          onChange={(value) => onAvatarChange("persona_summary", value)}
-          placeholder="Génère l'avatar pour remplir ce résumé."
-        />
-        <TextField
-          label="Situation actuelle"
-          value={typeof avatar.current_situation === "string" ? avatar.current_situation : ""}
-          rows={3}
-          onChange={(value) => onAvatarChange("current_situation", value)}
-          placeholder="Ce que vit le prospect aujourd'hui."
-        />
-        <TextField
-          label="Situation désirée"
-          value={typeof avatar.desired_situation === "string" ? avatar.desired_situation : ""}
-          rows={3}
-          onChange={(value) => onAvatarChange("desired_situation", value)}
-          placeholder="Ce qu'il veut obtenir."
-        />
-      </div>
+          <TextField
+            label="Résumé persona"
+            value={typeof avatar.persona_summary === "string" ? avatar.persona_summary : ""}
+            rows={4}
+            onChange={(value) => onAvatarChange("persona_summary", value)}
+            placeholder="Génère l'avatar pour remplir ce résumé."
+          />
+          <TextField
+            label="Situation actuelle"
+            value={typeof avatar.current_situation === "string" ? avatar.current_situation : ""}
+            rows={3}
+            onChange={(value) => onAvatarChange("current_situation", value)}
+            placeholder="Ce que vit le prospect aujourd'hui."
+          />
+          <TextField
+            label="Situation désirée"
+            value={typeof avatar.desired_situation === "string" ? avatar.desired_situation : ""}
+            rows={3}
+            onChange={(value) => onAvatarChange("desired_situation", value)}
+            placeholder="Ce qu'il veut obtenir."
+          />
+        </div>
 
       <div style={styles.editableListGrid}>
         {AVATAR_ARRAY_FIELDS.map((field) => (
@@ -819,12 +863,13 @@ function AvatarReviewStep({
       </div>
 
       <div style={styles.actionRow}>
-        <button type="button" onClick={onGenerateRules} disabled={disabled} style={secondaryButton(disabled)}>
+        <button type="button" onClick={onGenerateRules} disabled={disabled || !canGenerateRules} style={secondaryButton(disabled || !canGenerateRules)}>
           {generatingRules ? <Loader2 size={15} className="animate-spin" /> : <MessageSquareText size={15} />}
           Générer les règles DM
         </button>
         <AdvancedToggle open={showAdvanced} onClick={onToggleAdvanced} />
       </div>
+      {generateRulesHelp && <p style={styles.actionHelp}>{generateRulesHelp}</p>}
 
       {showAdvanced && (
         <JsonEditor title="JSON avatar" value={avatarJson} onChange={onJsonChange} rows={12} />
@@ -840,6 +885,8 @@ function RulesStep({
   disabled,
   saving,
   generating,
+  canGenerate,
+  generateHelp,
   onRulesChange,
   onJsonChange,
   onToggleAdvanced,
@@ -852,6 +899,8 @@ function RulesStep({
   disabled: boolean;
   saving: boolean;
   generating: boolean;
+  canGenerate: boolean;
+  generateHelp: string | null;
   onRulesChange: (key: keyof AgentSalesRules, value: string[]) => void;
   onJsonChange: (value: string) => void;
   onToggleAdvanced: () => void;
@@ -873,12 +922,17 @@ function RulesStep({
       />
 
       <div style={styles.actionRow}>
-        <button type="button" onClick={onGenerate} disabled={disabled} style={secondaryButton(disabled)}>
+        <button type="button" onClick={onGenerate} disabled={disabled || !canGenerate} style={secondaryButton(disabled || !canGenerate)}>
           {generating ? <Loader2 size={15} className="animate-spin" /> : <Wand2 size={15} />}
           Régénérer depuis l'avatar
         </button>
         <AdvancedToggle open={showAdvanced} onClick={onToggleAdvanced} />
       </div>
+      {generateHelp && <p style={styles.actionHelp}>{generateHelp}</p>}
+
+      {!isRulesMeaningful(rules) && (
+        <EmptyState text="Valide l'avatar puis génère les règles DM." />
+      )}
 
       <div style={styles.editableListGrid}>
         {RULE_FIELDS.map((field) => (
@@ -904,6 +958,8 @@ function LaunchStep({
   avatar,
   rules,
   disabled,
+  canRebuild,
+  rebuildHelp,
   rebuilding,
   messages,
   input,
@@ -925,6 +981,8 @@ function LaunchStep({
   avatar: AgentAvatar;
   rules: AgentSalesRules;
   disabled: boolean;
+  canRebuild: boolean;
+  rebuildHelp: string | null;
   rebuilding: boolean;
   messages: ChatMessage[];
   input: string;
@@ -952,12 +1010,13 @@ function LaunchStep({
         title="Reconstruis le prompt actif d'Angelos"
         description="Le prompt sera compilé depuis le profil business, l'avatar validé et les règles DM. Les données structurées restent la source de vérité."
         action={
-          <button type="button" onClick={onRebuild} disabled={disabled} style={primaryButton(disabled)}>
+          <button type="button" onClick={onRebuild} disabled={disabled || !canRebuild} style={primaryButton(disabled || !canRebuild)}>
             {rebuilding ? <Loader2 size={15} className="animate-spin" /> : <FileJson size={15} />}
             Rebuild prompt Angelos
           </button>
         }
       />
+      {rebuildHelp && <p style={styles.actionHelp}>{rebuildHelp}</p>}
 
       <div style={styles.launchGrid}>
         <SummaryMetric label="Business" value={profile.offer_name || profile.business_name || "À compléter"} />
@@ -1038,7 +1097,18 @@ function TestConversation({
 
       <div style={styles.chatBox}>
         {messages.length === 0 ? (
-          <div style={styles.chatEmpty}>Écris un message de prospect pour tester Angelos.</div>
+          <div style={styles.chatEmpty}>
+            <strong>Teste Angelos avec un vrai message prospect.</strong>
+            {[
+              "Salut, je suis intéressé mais je ne sais pas si c'est adapté à moi.",
+              "Ça coûte combien ?",
+              "J'ai déjà essayé plusieurs solutions mais ça n'a pas marché.",
+            ].map((example) => (
+              <button key={example} type="button" onClick={() => onInputChange(example)} style={styles.examplePrompt}>
+                {example}
+              </button>
+            ))}
+          </div>
         ) : (
           messages.map((message, index) => {
             const isAgent = message.role === "assistant";
@@ -1195,149 +1265,6 @@ function PreviewPanel({
   );
 }
 
-function SectionHeader({
-  eyebrow,
-  title,
-  description,
-  action,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  action: React.ReactNode;
-}) {
-  return (
-    <div style={styles.sectionHeader}>
-      <div>
-        <p style={styles.sectionEyebrow}>{eyebrow}</p>
-        <h2 style={styles.sectionTitle}>{title}</h2>
-        <p style={styles.sectionDescription}>{description}</p>
-      </div>
-      {action}
-    </div>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <label style={styles.label}>
-      {label}
-      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={styles.input} />
-    </label>
-  );
-}
-
-function TextField({
-  label,
-  value,
-  rows,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  rows: number;
-  onChange: (value: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <label style={styles.label}>
-      {label}
-      <textarea value={value} rows={rows} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={styles.textarea} />
-    </label>
-  );
-}
-
-function PromptField({
-  label,
-  hint,
-  value,
-  onChange,
-}: {
-  label: string;
-  hint: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label style={styles.promptField}>
-      <span style={styles.promptLabel}>{label}</span>
-      <span style={styles.promptHint}>{hint}</span>
-      <textarea value={value} rows={3} onChange={(event) => onChange(event.target.value)} style={styles.promptTextarea} />
-    </label>
-  );
-}
-
-function EditableList({
-  label,
-  empty,
-  items,
-  onChange,
-}: {
-  label: string;
-  empty: string;
-  items: string[];
-  onChange: (items: string[]) => void;
-}) {
-  const text = listToText(items);
-  return (
-    <label style={styles.editableList}>
-      <span style={styles.listHeader}>
-        <span>{label}</span>
-        <span style={styles.countPill}>{items.length}</span>
-      </span>
-      <textarea
-        value={text}
-        rows={Math.max(3, Math.min(7, items.length + 1))}
-        onChange={(event) => onChange(textToList(event.target.value))}
-        placeholder={empty}
-        style={styles.listTextarea}
-      />
-    </label>
-  );
-}
-
-function JsonEditor({
-  title,
-  value,
-  onChange,
-  rows,
-}: {
-  title: string;
-  value: string;
-  onChange: (value: string) => void;
-  rows: number;
-}) {
-  return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 18 }}>
-      <span style={styles.jsonTitle}>
-        <FileJson size={15} color="#0095F6" />
-        {title}
-      </span>
-      <textarea value={value} rows={rows} spellCheck={false} onChange={(e) => onChange(e.target.value)} style={styles.jsonTextarea} />
-    </label>
-  );
-}
-
-function AdvancedToggle({ open, onClick }: { open: boolean; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} style={ghostButton(false)}>
-      <ChevronDown size={15} style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms ease" }} />
-      {open ? "Masquer JSON" : "Mode avancé"}
-    </button>
-  );
-}
-
 function PreviewSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section style={styles.previewSection}>
@@ -1382,12 +1309,12 @@ function formatDate(value: string): string {
   return `${date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })} à ${date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
-function stepDone(step: StepId, checklist: Record<string, boolean>, progress: number): boolean {
-  if (step === "business") return Boolean(checklist.business_setup);
-  if (step === "avatar-input") return progress >= 25;
-  if (step === "avatar-review") return Boolean(checklist.avatar_client);
-  if (step === "rules") return Boolean(checklist.regles_dm);
-  return progress >= 100;
+function stepDone(step: StepId, checklist: ReturnType<typeof buildTrainingChecklist>): boolean {
+  if (step === "business") return checklist.business === "Complet";
+  if (step === "avatar-input") return checklist.business === "Complet";
+  if (step === "avatar-review") return checklist.avatar === "Complet";
+  if (step === "rules") return checklist.rules === "Complet";
+  return checklist.activation === "Prompt reconstruit";
 }
 
 function iconButton(disabled: boolean): React.CSSProperties {
@@ -1522,6 +1449,14 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 15,
     lineHeight: 1.5,
   },
+  microCopy: {
+    margin: "8px 0 0",
+    maxWidth: 720,
+    color: "#334155",
+    fontSize: 13,
+    lineHeight: 1.45,
+    fontWeight: 750,
+  },
   successNotice: {
     marginBottom: 14,
     padding: "10px 12px",
@@ -1591,6 +1526,45 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#94a3b8",
     fontSize: 12,
     fontWeight: 650,
+  },
+  levelCard: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    background: "#f8fbff",
+    border: "1px solid #e1eefc",
+    display: "grid",
+    gap: 4,
+  },
+  levelLabel: {
+    color: "#0095F6",
+    fontSize: 11,
+    fontWeight: 850,
+    textTransform: "uppercase",
+  },
+  levelTitle: {
+    color: "#0f172a",
+    fontSize: 14,
+    lineHeight: 1.2,
+  },
+  levelText: {
+    color: "#64748b",
+    fontSize: 12,
+    lineHeight: 1.35,
+  },
+  checklistBlock: {
+    display: "grid",
+    gap: 7,
+    borderBottom: "1px solid #edf1f5",
+    paddingBottom: 12,
+    marginBottom: 12,
+  },
+  checklistRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 8,
+    color: "#64748b",
+    fontSize: 12,
   },
   stepList: {
     display: "grid",
@@ -1875,6 +1849,16 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 10,
     marginTop: 16,
   },
+  actionHelp: {
+    margin: "8px 0 0",
+    color: "#b45309",
+    background: "#fffbeb",
+    border: "1px solid #fde68a",
+    borderRadius: 8,
+    padding: "8px 10px",
+    fontSize: 12,
+    fontWeight: 750,
+  },
   jsonTitle: {
     display: "flex",
     alignItems: "center",
@@ -1882,6 +1866,16 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     fontWeight: 850,
     color: "#0f172a",
+  },
+  debugWarning: {
+    color: "#92400e",
+    background: "#fffbeb",
+    border: "1px solid #fde68a",
+    borderRadius: 8,
+    padding: "8px 10px",
+    fontSize: 12,
+    lineHeight: 1.4,
+    fontWeight: 700,
   },
   jsonTextarea: {
     width: "100%",
@@ -1973,11 +1967,25 @@ const styles: Record<string, React.CSSProperties> = {
   },
   chatEmpty: {
     flex: 1,
-    display: "grid",
-    placeItems: "center",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    justifyContent: "center",
+    gap: 8,
     color: "#94a3b8",
     fontSize: 13,
-    textAlign: "center",
+    textAlign: "left",
+  },
+  examplePrompt: {
+    border: "1px solid #dbeafe",
+    borderRadius: 8,
+    background: "#eff6ff",
+    color: "#1d4ed8",
+    padding: "8px 10px",
+    fontSize: 12,
+    lineHeight: 1.35,
+    textAlign: "left",
+    cursor: "pointer",
   },
   agentBubble: {
     maxWidth: "84%",
@@ -2073,5 +2081,16 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#64748b",
     fontSize: 13,
     lineHeight: 1.55,
+  },
+  emptyState: {
+    border: "1px dashed #cbd5e1",
+    borderRadius: 8,
+    background: "#f8fafc",
+    color: "#64748b",
+    padding: 16,
+    fontSize: 13,
+    lineHeight: 1.45,
+    marginBottom: 14,
+    fontWeight: 700,
   },
 };

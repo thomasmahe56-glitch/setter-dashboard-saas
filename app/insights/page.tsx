@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { Loader2, ChevronDown, ChevronUp, Zap, ArrowLeft } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
 
@@ -586,7 +585,6 @@ function Skeleton() {
 }
 
 export default function InsightsPage() {
-  const router = useRouter();
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

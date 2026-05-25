@@ -320,10 +320,14 @@ body {
 
   .training-inner {
     max-width: none !important;
-    padding: 20px 16px 24px !important;
-    height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    padding: 20px 16px calc(96px + env(safe-area-inset-bottom)) !important;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scroll-padding-bottom: 140px;
   }
 
   .training-header {
@@ -362,6 +366,22 @@ body {
   .training-work-pane,
   .training-preview-pane {
     padding: 16px !important;
+  }
+
+  .training-work-pane input,
+  .training-work-pane textarea,
+  .training-preview-pane textarea {
+    font-size: 16px !important;
+  }
+
+  .training-work-pane textarea,
+  .training-preview-pane textarea {
+    min-height: 96px;
+  }
+
+  .training-work-pane button,
+  .training-preview-pane button {
+    max-width: 100%;
   }
 
   .training-steps-pane nav {

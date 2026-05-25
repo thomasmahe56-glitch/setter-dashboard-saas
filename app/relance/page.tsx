@@ -1,6 +1,5 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Check, Clock3, Copy, ExternalLink, Loader2, Send, Sparkles } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
@@ -25,7 +24,6 @@ function RelanceSkeleton() {
 }
 
 export default function RelancePage() {
-  const router = useRouter();
   const [followUps, setFollowUps] = useState<FollowUpDue[]>([]);
   const [previews, setPreviews] = useState<Record<string, FollowUpPreview>>({});
   const [loading, setLoading] = useState(true);

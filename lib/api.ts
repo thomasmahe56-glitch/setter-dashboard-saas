@@ -184,6 +184,19 @@ export interface TrainingCenterState {
   progress_score: number;
 }
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface PromptVersion {
+  id: string;
+  created_at: string;
+  is_active: boolean;
+  source: string | null;
+  insight_id: string | null;
+}
+
 export const api = {
   getConversations: () => apiFetch<Conversation[]>("/conversations"),
   getConversationSummaries: () =>
@@ -252,6 +265,21 @@ export const api = {
     }),
   rebuildAgentPrompt: () =>
     apiFetch<{ success: boolean; prompt_version_id: string }>("/agent/prompt/rebuild", {
+      method: "POST",
+    }),
+  playground: (messages: ChatMessage[], calendly_url?: string, sales_page_url?: string) =>
+    apiFetch<{ response: string }>("/playground", {
+      method: "POST",
+      body: JSON.stringify({
+        messages,
+        calendly_url: calendly_url?.trim() || undefined,
+        sales_page_url: sales_page_url?.trim() || undefined,
+      }),
+    }),
+  getPromptVersions: () =>
+    apiFetch<PromptVersion[]>("/prompt-versions"),
+  restorePromptVersion: (versionId: string) =>
+    apiFetch<{ success: boolean }>(`/prompt-versions/${versionId}/restore`, {
       method: "POST",
     }),
   logout: async () => {

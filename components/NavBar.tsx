@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   BarChart3,
-  Bot,
   Clock3,
   GraduationCap,
   Lightbulb,
@@ -24,7 +23,6 @@ const TABS = [
   { href: "/kpi", label: "KPIs", icon: BarChart3 },
   { href: "/insights", label: "Insights", icon: Lightbulb },
   { href: "/agent/training-center", label: "Training", icon: GraduationCap },
-  { href: "/agent", label: "Agent", icon: Bot },
 ];
 
 interface NavBarProps {

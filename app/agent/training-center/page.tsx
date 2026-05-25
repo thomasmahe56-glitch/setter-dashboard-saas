@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -11,7 +11,9 @@ import {
   Loader2,
   MessageSquareText,
   RefreshCw,
+  RotateCcw,
   Save,
+  Send,
   Sparkles,
   Wand2,
 } from "lucide-react";
@@ -21,6 +23,8 @@ import {
   AgentSalesRules,
   api,
   AvatarGenerateInput,
+  ChatMessage,
+  PromptVersion,
   TrainingProfileInput,
 } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
@@ -195,8 +199,17 @@ export default function TrainingCenterPage() {
   const [generatingRules, setGeneratingRules] = useState(false);
   const [savingRules, setSavingRules] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [promptVersions, setPromptVersions] = useState<PromptVersion[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(true);
+  const [restoreLoading, setRestoreLoading] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     createClient().auth.getSession().then(({ data }) => {
@@ -222,9 +235,29 @@ export default function TrainingCenterPage() {
     }
   }, []);
 
+  const loadPromptVersions = useCallback(async () => {
+    setVersionsLoading(true);
+    try {
+      const data = await api.getPromptVersions();
+      setPromptVersions(data);
+    } catch {
+      setPromptVersions([]);
+    } finally {
+      setVersionsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadTrainingCenter();
   }, [loadTrainingCenter]);
+
+  useEffect(() => {
+    loadPromptVersions();
+  }, [loadPromptVersions]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, chatLoading]);
 
   const avatar = useMemo(() => {
     try {
@@ -255,7 +288,7 @@ export default function TrainingCenterPage() {
     return fields.filter((value) => value.trim()).length;
   }, [profile]);
 
-  const actionDisabled = loading || savingProfile || generatingAvatar || savingAvatar || generatingRules || savingRules || rebuilding;
+  const actionDisabled = loading || savingProfile || generatingAvatar || savingAvatar || generatingRules || savingRules || rebuilding || chatLoading || Boolean(restoreLoading);
   const currentIndex = STEPS.findIndex((step) => step.id === activeStep);
   const canGoBack = currentIndex > 0;
   const canGoNext = currentIndex < STEPS.length - 1;
@@ -372,10 +405,55 @@ export default function TrainingCenterPage() {
       await api.rebuildAgentPrompt();
       setProgress(100);
       setNotice({ kind: "success", text: "Prompt Angelos reconstruit et activé" });
+      await loadPromptVersions();
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Rebuild impossible" });
     } finally {
       setRebuilding(false);
+    }
+  }
+
+  async function handleSendTestMessage() {
+    const text = chatInput.trim();
+    if (!text || chatLoading) return;
+
+    const nextMessages = [...chatMessages, { role: "user" as const, content: text }];
+    setChatMessages(nextMessages);
+    setChatInput("");
+    setChatLoading(true);
+    setChatError(null);
+
+    try {
+      const data = await api.playground(nextMessages, profile.calendly_url, profile.sales_page_url);
+      setChatMessages((current) => [...current, { role: "assistant", content: data.response }]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Test impossible";
+      setChatError(message);
+      setChatMessages((current) => [...current, { role: "assistant", content: message }]);
+    } finally {
+      setChatLoading(false);
+      setTimeout(() => chatInputRef.current?.focus(), 50);
+    }
+  }
+
+  function handleChatKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      handleSendTestMessage();
+    }
+  }
+
+  async function handleRestorePrompt(versionId: string) {
+    setRestoreLoading(versionId);
+    setNotice(null);
+    try {
+      await api.restorePromptVersion(versionId);
+      await loadPromptVersions();
+      setNotice({ kind: "success", text: "Version de prompt restaurée" });
+    } catch (error) {
+      setNotice({ kind: "error", text: error instanceof Error ? error.message : "Restauration impossible" });
+    } finally {
+      setRestoreLoading(null);
     }
   }
 
@@ -507,6 +585,24 @@ export default function TrainingCenterPage() {
                 rules={rules}
                 disabled={actionDisabled}
                 rebuilding={rebuilding}
+                messages={chatMessages}
+                input={chatInput}
+                chatLoading={chatLoading}
+                chatError={chatError}
+                promptVersions={promptVersions}
+                versionsLoading={versionsLoading}
+                restoreLoading={restoreLoading}
+                messagesEndRef={messagesEndRef}
+                inputRef={chatInputRef}
+                onInputChange={setChatInput}
+                onSendTestMessage={handleSendTestMessage}
+                onChatKeyDown={handleChatKeyDown}
+                onResetChat={() => {
+                  setChatMessages([]);
+                  setChatError(null);
+                  setChatInput("");
+                }}
+                onRestorePrompt={handleRestorePrompt}
                 onRebuild={handleRebuildPrompt}
               />
             )}
@@ -809,6 +905,20 @@ function LaunchStep({
   rules,
   disabled,
   rebuilding,
+  messages,
+  input,
+  chatLoading,
+  chatError,
+  promptVersions,
+  versionsLoading,
+  restoreLoading,
+  messagesEndRef,
+  inputRef,
+  onInputChange,
+  onSendTestMessage,
+  onChatKeyDown,
+  onResetChat,
+  onRestorePrompt,
   onRebuild,
 }: {
   profile: TrainingProfileInput;
@@ -816,6 +926,20 @@ function LaunchStep({
   rules: AgentSalesRules;
   disabled: boolean;
   rebuilding: boolean;
+  messages: ChatMessage[];
+  input: string;
+  chatLoading: boolean;
+  chatError: string | null;
+  promptVersions: PromptVersion[];
+  versionsLoading: boolean;
+  restoreLoading: string | null;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
+  onInputChange: (value: string) => void;
+  onSendTestMessage: () => void;
+  onChatKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onResetChat: () => void;
+  onRestorePrompt: (versionId: string) => void;
   onRebuild: () => void;
 }) {
   const avatarCount = AVATAR_ARRAY_FIELDS.reduce((total, field) => total + getStringList(avatar[field.key]).length, 0);
@@ -848,7 +972,167 @@ function LaunchStep({
           Si une réponse sonne faux, reviens ici corriger l'avatar ou les règles plutôt que de modifier le prompt à la main.
         </p>
       </div>
+
+      <div style={styles.launchToolsGrid}>
+        <TestConversation
+          messages={messages}
+          input={input}
+          loading={chatLoading}
+          error={chatError}
+          disabled={disabled}
+          messagesEndRef={messagesEndRef}
+          inputRef={inputRef}
+          onInputChange={onInputChange}
+          onSend={onSendTestMessage}
+          onKeyDown={onChatKeyDown}
+          onReset={onResetChat}
+        />
+        <PromptHistory
+          versions={promptVersions}
+          loading={versionsLoading}
+          restoreLoading={restoreLoading}
+          onRestore={onRestorePrompt}
+        />
+      </div>
     </div>
+  );
+}
+
+function TestConversation({
+  messages,
+  input,
+  loading,
+  error,
+  disabled,
+  messagesEndRef,
+  inputRef,
+  onInputChange,
+  onSend,
+  onKeyDown,
+  onReset,
+}: {
+  messages: ChatMessage[];
+  input: string;
+  loading: boolean;
+  error: string | null;
+  disabled: boolean;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
+  onInputChange: (value: string) => void;
+  onSend: () => void;
+  onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onReset: () => void;
+}) {
+  return (
+    <section style={styles.toolCard}>
+      <div style={styles.toolHeader}>
+        <div>
+          <h3 style={styles.cardTitle}>Conversation de test</h3>
+          <p style={styles.toolText}>Teste le prompt actif comme si tu étais un prospect.</p>
+        </div>
+        <button type="button" onClick={onReset} style={ghostButton(false)} title="Réinitialiser">
+          <RotateCcw size={14} />
+          Reset
+        </button>
+      </div>
+
+      <div style={styles.chatBox}>
+        {messages.length === 0 ? (
+          <div style={styles.chatEmpty}>Écris un message de prospect pour tester Angelos.</div>
+        ) : (
+          messages.map((message, index) => {
+            const isAgent = message.role === "assistant";
+            return (
+              <div key={`${message.role}-${index}`} style={{ display: "flex", justifyContent: isAgent ? "flex-start" : "flex-end" }}>
+                <div style={isAgent ? styles.agentBubble : styles.userBubble}>
+                  {message.content}
+                </div>
+              </div>
+            );
+          })
+        )}
+        {loading && (
+          <div style={{ display: "flex", justifyContent: "flex-start" }}>
+            <div style={styles.agentBubble}>Angelos réfléchit...</div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {error && <p style={styles.inlineError}>{error}</p>}
+
+      <div style={styles.chatInputRow}>
+        <textarea
+          ref={inputRef}
+          value={input}
+          rows={2}
+          disabled={disabled}
+          onChange={(event) => onInputChange(event.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder="Tape ton message en tant que prospect..."
+          style={styles.chatInput}
+        />
+        <button type="button" onClick={onSend} disabled={disabled || !input.trim()} style={primaryButton(disabled || !input.trim())} title="Envoyer">
+          <Send size={15} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function PromptHistory({
+  versions,
+  loading,
+  restoreLoading,
+  onRestore,
+}: {
+  versions: PromptVersion[];
+  loading: boolean;
+  restoreLoading: string | null;
+  onRestore: (versionId: string) => void;
+}) {
+  return (
+    <section style={styles.toolCard}>
+      <div style={styles.toolHeader}>
+        <div>
+          <h3 style={styles.cardTitle}>Historique prompts</h3>
+          <p style={styles.toolText}>Reviens à une version précédente si le rebuild ne te plaît pas.</p>
+        </div>
+      </div>
+
+      <div style={styles.versionList}>
+        {loading ? (
+          <div style={styles.emptyText}>Chargement des versions...</div>
+        ) : versions.length === 0 ? (
+          <div style={styles.emptyText}>Aucune version disponible.</div>
+        ) : (
+          versions.slice(0, 8).map((version) => {
+            const active = version.is_active;
+            const restoring = restoreLoading === version.id;
+            return (
+              <div key={version.id} style={styles.versionRow}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={styles.versionTitle}>
+                    {version.source || "manual"}
+                    {active && <span style={styles.activePill}>Active</span>}
+                  </div>
+                  <div style={styles.versionMeta}>{formatDate(version.created_at)}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRestore(version.id)}
+                  disabled={active || Boolean(restoreLoading)}
+                  style={secondaryButton(active || Boolean(restoreLoading))}
+                >
+                  {restoring ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                  Restaurer
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -1090,6 +1374,12 @@ function SummaryMetric({ label, value }: { label: string; value: string }) {
       <strong style={styles.metricValue}>{value}</strong>
     </div>
   );
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return `${date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })} à ${date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 function stepDone(step: StepId, checklist: Record<string, boolean>, progress: number): boolean {
@@ -1643,6 +1933,134 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 16,
     background: "#fbfdff",
     marginTop: 14,
+  },
+  launchToolsGrid: {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1.15fr) minmax(300px, 0.85fr)",
+    gap: 14,
+    marginTop: 14,
+  },
+  toolCard: {
+    border: "1px solid #e6ebf2",
+    borderRadius: 8,
+    padding: 14,
+    background: "#fff",
+    minWidth: 0,
+  },
+  toolHeader: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 12,
+  },
+  toolText: {
+    margin: "4px 0 0",
+    color: "#64748b",
+    fontSize: 12,
+    lineHeight: 1.4,
+  },
+  chatBox: {
+    height: 300,
+    overflowY: "auto",
+    background: "#f8fafc",
+    border: "1px solid #edf1f5",
+    borderRadius: 8,
+    padding: 12,
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  chatEmpty: {
+    flex: 1,
+    display: "grid",
+    placeItems: "center",
+    color: "#94a3b8",
+    fontSize: 13,
+    textAlign: "center",
+  },
+  agentBubble: {
+    maxWidth: "84%",
+    borderRadius: "14px 14px 14px 4px",
+    background: "#0f9f77",
+    color: "#fff",
+    padding: "8px 12px",
+    fontSize: 13,
+    lineHeight: 1.45,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+  },
+  userBubble: {
+    maxWidth: "84%",
+    borderRadius: "14px 14px 4px 14px",
+    background: "#e8eef6",
+    color: "#0f172a",
+    padding: "8px 12px",
+    fontSize: 13,
+    lineHeight: 1.45,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+  },
+  inlineError: {
+    margin: "10px 0 0",
+    color: "#b91c1c",
+    fontSize: 12,
+    fontWeight: 700,
+  },
+  chatInputRow: {
+    display: "flex",
+    alignItems: "flex-end",
+    gap: 8,
+    marginTop: 10,
+  },
+  chatInput: {
+    flex: 1,
+    border: "1px solid #dfe5ee",
+    borderRadius: 8,
+    background: "#fff",
+    color: "#111827",
+    fontSize: 13,
+    padding: "10px 12px",
+    outline: "none",
+    fontFamily: "inherit",
+    resize: "none",
+    lineHeight: 1.45,
+  },
+  versionList: {
+    display: "grid",
+    gap: 9,
+  },
+  versionRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    border: "1px solid #edf1f5",
+    borderRadius: 8,
+    padding: 10,
+    background: "#fbfdff",
+  },
+  versionTitle: {
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    color: "#0f172a",
+    fontSize: 13,
+    fontWeight: 850,
+    minWidth: 0,
+  },
+  versionMeta: {
+    color: "#94a3b8",
+    fontSize: 11,
+    marginTop: 3,
+  },
+  activePill: {
+    borderRadius: 8,
+    background: "#dcfce7",
+    color: "#15803d",
+    padding: "2px 7px",
+    fontSize: 10,
+    fontWeight: 850,
   },
   cardTitle: {
     margin: "0 0 8px",

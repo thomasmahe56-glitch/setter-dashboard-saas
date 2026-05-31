@@ -1,6 +1,6 @@
 const configuredAgentName = process.env.NEXT_PUBLIC_AGENT_NAME?.trim();
 
 export const config = {
-  agentName: !configuredAgentName || configuredAgentName === "TestBot" ? "Angelos" : configuredAgentName,
+  agentName: !configuredAgentName || configuredAgentName === "TestBot" ? "Angellos" : configuredAgentName,
   apiUrl: (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, ""),
 };

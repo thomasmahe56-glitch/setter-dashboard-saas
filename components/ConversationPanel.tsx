@@ -116,7 +116,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
       setRefineInstruction("");
       setRefineOpen(false);
     } catch {
-      setRefineError("Angelos n'a pas pu affiner le message. Réessaie.");
+      setRefineError("Angellos n'a pas pu affiner le message. Réessaie.");
     }
     setRefining(false);
   }
@@ -337,7 +337,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                 fontSize: 12, fontWeight: 500, cursor: "pointer",
               }}
             >
-              ✨ Demander à Angelos d&apos;affiner
+              ✨ Demander à Angellos d&apos;affiner
             </button>
             <button
               type="button"
@@ -387,7 +387,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                 }}
               >
                 {refining ? <Loader2 size={13} className="animate-spin" /> : "✨"}
-                {refining ? "Angelos affine..." : "Affiner le message"}
+                {refining ? "Angellos affine..." : "Affiner le message"}
               </button>
             </div>
           )}

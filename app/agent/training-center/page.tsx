@@ -112,7 +112,7 @@ const STEPS: {
     id: "launch",
     eyebrow: "05",
     title: "Activation",
-    description: "Compilation du prompt Angelos.",
+    description: "Compilation du prompt Angellos.",
   },
 ];
 
@@ -154,7 +154,7 @@ const AVATAR_LABELS: Record<keyof AvatarGenerateInput, { label: string; hint: st
   },
   bad_fit: {
     label: "Mauvais fit",
-    hint: "Les profils qu'Angelos doit filtrer vite.",
+    hint: "Les profils qu'Angellos doit filtrer vite.",
     placeholder: "Ex : personnes non sérieuses, curieux gratuits, prospects hors budget, demandes hors périmètre.",
   },
 };
@@ -428,7 +428,7 @@ export default function TrainingCenterPage() {
     setNotice(null);
     try {
       await api.rebuildAgentPrompt();
-      setNotice({ kind: "success", text: "Prompt Angelos reconstruit et activé" });
+      setNotice({ kind: "success", text: "Prompt Angellos reconstruit et activé" });
       await loadPromptVersions();
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Rebuild impossible" });
@@ -492,10 +492,10 @@ export default function TrainingCenterPage() {
               <h1 style={styles.title}>Training Center</h1>
             </div>
             <p style={styles.subtitle}>
-              En 10 minutes, Angelos comprend ton offre, ton client idéal et ta manière de vendre. Plus tu l'entraînes, plus ses réponses deviennent précises, humaines et proches de ton style.
+              En 10 minutes, Angellos comprend ton offre, ton client idéal et ta manière de vendre. Plus tu l'entraînes, plus ses réponses deviennent précises, humaines et proches de ton style.
             </p>
             <p style={styles.microCopy}>
-              Réponds simplement avec tes mots. Angelos structure ensuite ton avatar et tes règles DM.
+              Réponds simplement avec tes mots. Angellos structure ensuite ton avatar et tes règles DM.
             </p>
           </div>
           <button
@@ -677,7 +677,7 @@ function BusinessStep({
     <div>
       <SectionHeader
         eyebrow="Business Setup"
-        title="Pose les bases qu'Angelos doit respecter"
+        title="Pose les bases qu'Angellos doit respecter"
         description="Commence par les éléments qui changent vraiment les réponses en DM. Les détails avancés restent disponibles, mais on évite de tout demander d'un coup."
         action={
           <button type="button" onClick={onSave} disabled={disabled} style={primaryButton(disabled)}>
@@ -753,7 +753,7 @@ function AvatarInputStep({
       <SectionHeader
         eyebrow="Avatar rapide"
         title="Décris ton client avec tes mots"
-        description="L'objectif n'est pas d'être parfait. Angelos va structurer ces réponses, puis tu valideras la version finale à l'étape suivante."
+        description="L'objectif n'est pas d'être parfait. Angellos va structurer ces réponses, puis tu valideras la version finale à l'étape suivante."
         action={
           <button type="button" onClick={onGenerate} disabled={disabled} style={primaryButton(disabled)}>
             {generating ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
@@ -812,7 +812,7 @@ function AvatarReviewStep({
     <div>
       <SectionHeader
         eyebrow="Validation avatar"
-        title="Valide ce qu'Angelos a compris"
+        title="Valide ce qu'Angellos a compris"
         description="Corrige les formulations importantes. C'est cette version structurée qui servira de source de vérité."
         action={
           <button type="button" onClick={onSave} disabled={disabled} style={primaryButton(disabled)}>
@@ -911,7 +911,7 @@ function RulesStep({
     <div>
       <SectionHeader
         eyebrow="Règles DM"
-        title="Décide comment Angelos qualifie et oriente"
+        title="Décide comment Angellos qualifie et oriente"
         description="Ces listes deviennent le garde-fou opérationnel: quand continuer, quand stopper, quand proposer un appel."
         action={
           <button type="button" onClick={onSave} disabled={disabled} style={primaryButton(disabled)}>
@@ -1007,13 +1007,12 @@ function LaunchStep({
     <div>
       <SectionHeader
         eyebrow="Activation"
-        title="Reconstruis le prompt actif d'Angelos"
+        title="Reconstruis le prompt actif d'Angellos"
         description="Le prompt sera compilé depuis le profil business, l'avatar validé et les règles DM. Les données structurées restent la source de vérité."
         action={
           <button type="button" onClick={onRebuild} disabled={disabled || !canRebuild} style={primaryButton(disabled || !canRebuild)}>
             {rebuilding ? <Loader2 size={15} className="animate-spin" /> : <FileJson size={15} />}
-            Rebuild prompt Angelos
-          </button>
+            Rebuild prompt Angellos          </button>
         }
       />
       {rebuildHelp && <p style={styles.actionHelp}>{rebuildHelp}</p>}
@@ -1098,7 +1097,7 @@ function TestConversation({
       <div style={styles.chatBox}>
         {messages.length === 0 ? (
           <div style={styles.chatEmpty}>
-            <strong>Teste Angelos avec un vrai message prospect.</strong>
+            <strong>Teste Angellos avec un vrai message prospect.</strong>
             {[
               "Salut, je suis intéressé mais je ne sais pas si c'est adapté à moi.",
               "Ça coûte combien ?",
@@ -1123,7 +1122,7 @@ function TestConversation({
         )}
         {loading && (
           <div style={{ display: "flex", justifyContent: "flex-start" }}>
-            <div style={styles.agentBubble}>Angelos réfléchit...</div>
+            <div style={styles.agentBubble}>Angellos réfléchit...</div>
           </div>
         )}
         <div ref={messagesEndRef} />
@@ -1228,7 +1227,7 @@ function PreviewPanel({
 
   return (
     <div style={styles.previewInner}>
-      <span style={styles.previewEyebrow}>Ce qu'Angelos comprend</span>
+      <span style={styles.previewEyebrow}>Ce qu'Angellos comprend</span>
       <h2 style={styles.previewTitle}>
         {profile.business_name || profile.offer_name || "Ton agent n'a pas encore de contexte"}
       </h2>

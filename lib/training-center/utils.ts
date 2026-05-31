@@ -213,7 +213,7 @@ export function getAngelosLevel(score: number): AngelosLevel {
   if (score <= 30) {
     return {
       label: "Assistant générique",
-      description: "Angelos manque encore de contexte pour vendre avec précision.",
+      description: "Angellos manque encore de contexte pour vendre avec précision.",
     };
   }
   if (score <= 60) {
@@ -225,7 +225,7 @@ export function getAngelosLevel(score: number): AngelosLevel {
   if (score <= 85) {
     return {
       label: "Setter spécialisé",
-      description: "Angelos comprend ton offre, tes prospects et tes règles principales.",
+      description: "Angellos comprend ton offre, tes prospects et tes règles principales.",
     };
   }
   return {

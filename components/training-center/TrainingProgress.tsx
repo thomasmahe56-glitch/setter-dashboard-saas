@@ -19,7 +19,7 @@ export function TrainingProgress({ progress, businessScore, level, checklist }: 
         </div>
         <span style={styles.progressHint}>{businessScore}/7 champs business essentiels</span>
         <div style={styles.levelCard}>
-          <span style={styles.levelLabel}>Niveau Angelos</span>
+          <span style={styles.levelLabel}>Niveau Angellos</span>
           <strong style={styles.levelTitle}>{level.label}</strong>
           <span style={styles.levelText}>{level.description}</span>
         </div>

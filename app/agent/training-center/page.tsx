@@ -80,6 +80,9 @@ const EMPTY_AVATAR_INPUT: AvatarGenerateInput = {
 
 type StepId = "business" | "avatar-input" | "avatar-review" | "rules" | "launch";
 type Notice = { kind: "success" | "error"; text: string } | null;
+type AutosaveKey = "profile" | "avatarInput" | "avatar" | "rules";
+type AutosaveStatus = "idle" | "saving" | "saved" | "error";
+type AutosaveState = Record<AutosaveKey, { status: AutosaveStatus; savedAt: number | null }>;
 
 const PROMPT_REFINEMENT_CHIPS = [
   "Trop d'emojis",
@@ -220,8 +223,18 @@ export default function TrainingCenterPage() {
   const [restoreLoading, setRestoreLoading] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
+  const [autosave, setAutosave] = useState<AutosaveState>({
+    profile: { status: "idle", savedAt: null },
+    avatarInput: { status: "idle", savedAt: null },
+    avatar: { status: "idle", savedAt: null },
+    rules: { status: "idle", savedAt: null },
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
+  const profileAutosaveSignatureRef = useRef<string | null>(null);
+  const avatarInputAutosaveSignatureRef = useRef<string | null>(null);
+  const avatarAutosaveSignatureRef = useRef<string | null>(null);
+  const rulesAutosaveSignatureRef = useRef<string | null>(null);
 
   const applyTrainingCenterState = useCallback((data: Awaited<ReturnType<typeof api.getTrainingCenter>>) => {
     setProfile({ ...EMPTY_PROFILE, ...(data.profile?.profile || {}) });
@@ -319,11 +332,121 @@ export default function TrainingCenterPage() {
   const canGenerateAvatar = hasMinimumAvatarInput(avatarInput);
   const canGenerateRules = isAvatarMeaningful(avatar);
   const canRebuildPrompt = isBusinessComplete(profile) && isAvatarComplete(avatar) && isRulesComplete(rules);
+  const profileAutosaveSignature = useMemo(() => JSON.stringify(profile), [profile]);
+  const avatarInputAutosaveSignature = useMemo(() => JSON.stringify(avatarInput), [avatarInput]);
+  const avatarAutosaveSignature = avatarJson;
+  const rulesAutosaveSignature = rulesJson;
 
   const actionDisabled = loading || savingProfile || generatingAvatar || savingAvatar || generatingRules || savingRules || rebuilding || chatLoading || refineLoading || refineApplying || Boolean(restoreLoading);
   const currentIndex = STEPS.findIndex((step) => step.id === activeStep);
   const canGoBack = currentIndex > 0;
   const canGoNext = currentIndex < STEPS.length - 1;
+
+  const setAutosaveStatus = useCallback((key: AutosaveKey, status: AutosaveStatus) => {
+    setAutosave((current) => ({
+      ...current,
+      [key]: {
+        status,
+        savedAt: status === "saved" ? Date.now() : current[key].savedAt,
+      },
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    if (profileAutosaveSignatureRef.current === null) {
+      profileAutosaveSignatureRef.current = profileAutosaveSignature;
+      return;
+    }
+    if (profileAutosaveSignatureRef.current === profileAutosaveSignature) return;
+
+    const timeout = window.setTimeout(async () => {
+      setAutosaveStatus("profile", "saving");
+      try {
+        await api.autosaveTrainingProfile(profile);
+        profileAutosaveSignatureRef.current = profileAutosaveSignature;
+        setAutosaveStatus("profile", "saved");
+      } catch {
+        setAutosaveStatus("profile", "error");
+      }
+    }, 800);
+    return () => window.clearTimeout(timeout);
+  }, [loading, profile, profileAutosaveSignature, setAutosaveStatus]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (avatarInputAutosaveSignatureRef.current === null) {
+      avatarInputAutosaveSignatureRef.current = avatarInputAutosaveSignature;
+      return;
+    }
+    if (avatarInputAutosaveSignatureRef.current === avatarInputAutosaveSignature) return;
+
+    const timeout = window.setTimeout(async () => {
+      setAutosaveStatus("avatarInput", "saving");
+      try {
+        await api.autosaveAvatarInput(avatarInput);
+        avatarInputAutosaveSignatureRef.current = avatarInputAutosaveSignature;
+        setAutosaveStatus("avatarInput", "saved");
+      } catch {
+        setAutosaveStatus("avatarInput", "error");
+      }
+    }, 800);
+    return () => window.clearTimeout(timeout);
+  }, [loading, avatarInput, avatarInputAutosaveSignature, setAutosaveStatus]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (avatarAutosaveSignatureRef.current === null) {
+      avatarAutosaveSignatureRef.current = avatarAutosaveSignature;
+      return;
+    }
+    if (avatarAutosaveSignatureRef.current === avatarAutosaveSignature) return;
+
+    const parsed = parseJsonObject<AgentAvatar>(avatarJson);
+    if (!parsed.ok) {
+      setAutosaveStatus("avatar", "error");
+      return;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      setAutosaveStatus("avatar", "saving");
+      try {
+        await api.autosaveAvatar(parsed.value);
+        avatarAutosaveSignatureRef.current = avatarAutosaveSignature;
+        setAutosaveStatus("avatar", "saved");
+      } catch {
+        setAutosaveStatus("avatar", "error");
+      }
+    }, 800);
+    return () => window.clearTimeout(timeout);
+  }, [loading, avatarJson, avatarAutosaveSignature, setAutosaveStatus]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (rulesAutosaveSignatureRef.current === null) {
+      rulesAutosaveSignatureRef.current = rulesAutosaveSignature;
+      return;
+    }
+    if (rulesAutosaveSignatureRef.current === rulesAutosaveSignature) return;
+
+    const parsed = parseJsonObject<AgentSalesRules>(rulesJson);
+    if (!parsed.ok) {
+      setAutosaveStatus("rules", "error");
+      return;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      setAutosaveStatus("rules", "saving");
+      try {
+        await api.autosaveSalesRules(parsed.value);
+        rulesAutosaveSignatureRef.current = rulesAutosaveSignature;
+        setAutosaveStatus("rules", "saved");
+      } catch {
+        setAutosaveStatus("rules", "error");
+      }
+    }, 800);
+    return () => window.clearTimeout(timeout);
+  }, [loading, rulesJson, rulesAutosaveSignature, setAutosaveStatus]);
 
   function updateProfile(key: keyof TrainingProfileInput, value: string | string[]) {
     setProfile((current) => ({ ...current, [key]: value }));
@@ -628,6 +751,7 @@ export default function TrainingCenterPage() {
               <BusinessStep
                 profile={profile}
                 onChange={updateProfile}
+                autosaveStatus={autosave.profile.status}
                 disabled={actionDisabled}
                 saving={savingProfile}
                 onSave={handleSaveProfile}
@@ -638,6 +762,7 @@ export default function TrainingCenterPage() {
               <AvatarInputStep
                 input={avatarInput}
                 disabled={actionDisabled || !canGenerateAvatar}
+                autosaveStatus={autosave.avatarInput.status}
                 helperText={canGenerateAvatar ? null : "Complète d'abord client idéal, problème principal et résultat désiré."}
                 generating={generatingAvatar}
                 onChange={updateAvatarInput}
@@ -652,6 +777,7 @@ export default function TrainingCenterPage() {
                 showAdvanced={showAdvanced}
                 disabled={actionDisabled}
                 saving={savingAvatar}
+                autosaveStatus={autosave.avatar.status}
                 generatingRules={generatingRules}
                 canGenerateRules={canGenerateRules}
                 generateRulesHelp={canGenerateRules ? null : "Génère et complète d'abord l'avatar client."}
@@ -670,6 +796,7 @@ export default function TrainingCenterPage() {
                 showAdvanced={showAdvanced}
                 disabled={actionDisabled}
                 saving={savingRules}
+                autosaveStatus={autosave.rules.status}
                 generating={generatingRules}
                 canGenerate={canGenerateRules}
                 generateHelp={canGenerateRules ? null : "Valide l'avatar avant de générer les règles DM."}
@@ -749,14 +876,37 @@ export default function TrainingCenterPage() {
   );
 }
 
+function AutosaveIndicator({ status }: { status: AutosaveStatus }) {
+  if (status === "idle") return null;
+  if (status === "saving") {
+    return (
+      <span style={styles.autosaveSaving}>
+        <Loader2 size={12} className="animate-spin" />
+        Enregistrement...
+      </span>
+    );
+  }
+  if (status === "error") {
+    return <span style={styles.autosaveError}>Non sauvegardé</span>;
+  }
+  return (
+    <span style={styles.autosaveSaved}>
+      <Check size={12} />
+      Sauvegardé
+    </span>
+  );
+}
+
 function BusinessStep({
   profile,
+  autosaveStatus,
   disabled,
   saving,
   onChange,
   onSave,
 }: {
   profile: TrainingProfileInput;
+  autosaveStatus: AutosaveStatus;
   disabled: boolean;
   saving: boolean;
   onChange: (key: keyof TrainingProfileInput, value: string | string[]) => void;
@@ -769,10 +919,13 @@ function BusinessStep({
         title="Pose les bases qu'Angellos doit respecter"
         description="Commence par les éléments qui changent vraiment les réponses en DM. Les détails avancés restent disponibles, mais on évite de tout demander d'un coup."
         action={
-          <button type="button" onClick={onSave} disabled={disabled} style={primaryButton(disabled)}>
-            {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-            Enregistrer
-          </button>
+          <div style={styles.headerActions}>
+            <AutosaveIndicator status={autosaveStatus} />
+            <button type="button" onClick={onSave} disabled={disabled} style={primaryButton(disabled)}>
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+              Enregistrer
+            </button>
+          </div>
         }
       />
 
@@ -825,6 +978,7 @@ function BusinessStep({
 function AvatarInputStep({
   input,
   disabled,
+  autosaveStatus,
   helperText,
   generating,
   onChange,
@@ -832,6 +986,7 @@ function AvatarInputStep({
 }: {
   input: AvatarGenerateInput;
   disabled: boolean;
+  autosaveStatus: AutosaveStatus;
   helperText: string | null;
   generating: boolean;
   onChange: (key: keyof AvatarGenerateInput, value: string) => void;
@@ -844,10 +999,13 @@ function AvatarInputStep({
         title="Décris ton client avec tes mots"
         description="L'objectif n'est pas d'être parfait. Angellos va structurer ces réponses, puis tu valideras la version finale à l'étape suivante."
         action={
-          <button type="button" onClick={onGenerate} disabled={disabled} style={primaryButton(disabled)}>
-            {generating ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-            Générer l'avatar
-          </button>
+          <div style={styles.headerActions}>
+            <AutosaveIndicator status={autosaveStatus} />
+            <button type="button" onClick={onGenerate} disabled={disabled} style={primaryButton(disabled)}>
+              {generating ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+              Générer l'avatar
+            </button>
+          </div>
         }
       />
       {helperText && <p style={styles.actionHelp}>{helperText}</p>}
@@ -874,6 +1032,7 @@ function AvatarReviewStep({
   showAdvanced,
   disabled,
   saving,
+  autosaveStatus,
   generatingRules,
   canGenerateRules,
   generateRulesHelp,
@@ -888,6 +1047,7 @@ function AvatarReviewStep({
   showAdvanced: boolean;
   disabled: boolean;
   saving: boolean;
+  autosaveStatus: AutosaveStatus;
   generatingRules: boolean;
   canGenerateRules: boolean;
   generateRulesHelp: string | null;
@@ -904,10 +1064,13 @@ function AvatarReviewStep({
         title="Valide ce qu'Angellos a compris"
         description="Corrige les formulations importantes. C'est cette version structurée qui servira de source de vérité."
         action={
-          <button type="button" onClick={onSave} disabled={disabled} style={primaryButton(disabled)}>
-            {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-            Valider l'avatar
-          </button>
+          <div style={styles.headerActions}>
+            <AutosaveIndicator status={autosaveStatus} />
+            <button type="button" onClick={onSave} disabled={disabled} style={primaryButton(disabled)}>
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+              Valider l'avatar
+            </button>
+          </div>
         }
       />
 
@@ -973,6 +1136,7 @@ function RulesStep({
   showAdvanced,
   disabled,
   saving,
+  autosaveStatus,
   generating,
   canGenerate,
   generateHelp,
@@ -987,6 +1151,7 @@ function RulesStep({
   showAdvanced: boolean;
   disabled: boolean;
   saving: boolean;
+  autosaveStatus: AutosaveStatus;
   generating: boolean;
   canGenerate: boolean;
   generateHelp: string | null;
@@ -1003,10 +1168,13 @@ function RulesStep({
         title="Décide comment Angellos qualifie et oriente"
         description="Ces listes deviennent le garde-fou opérationnel: quand continuer, quand stopper, quand proposer un appel."
         action={
-          <button type="button" onClick={onSave} disabled={disabled} style={primaryButton(disabled)}>
-            {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-            Enregistrer les règles
-          </button>
+          <div style={styles.headerActions}>
+            <AutosaveIndicator status={autosaveStatus} />
+            <button type="button" onClick={onSave} disabled={disabled} style={primaryButton(disabled)}>
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+              Enregistrer les règles
+            </button>
+          </div>
         }
       />
 
@@ -2123,6 +2291,51 @@ const styles: Record<string, React.CSSProperties> = {
     flexWrap: "wrap",
     gap: 10,
     marginTop: 16,
+  },
+  headerActions: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  autosaveSaved: {
+    minHeight: 26,
+    borderRadius: 8,
+    background: "#ecfdf5",
+    color: "#15803d",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    padding: "0 8px",
+    fontSize: 12,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  },
+  autosaveSaving: {
+    minHeight: 26,
+    borderRadius: 8,
+    background: "#eff6ff",
+    color: "#0369a1",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    padding: "0 8px",
+    fontSize: 12,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  },
+  autosaveError: {
+    minHeight: 26,
+    borderRadius: 8,
+    background: "#fef2f2",
+    color: "#b91c1c",
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "0 8px",
+    fontSize: 12,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
   },
   actionHelp: {
     margin: "8px 0 0",

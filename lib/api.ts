@@ -262,6 +262,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(profile),
     }),
+  autosaveTrainingProfile: (profile: TrainingProfileInput) =>
+    apiFetch<{ success: boolean; profile: unknown }>("/agent/profile", {
+      method: "PATCH",
+      body: JSON.stringify(profile),
+    }),
   generateAvatar: (input: AvatarGenerateInput) =>
     apiFetch<{ avatar: AgentAvatar }>("/agent/avatar/generate", {
       method: "POST",
@@ -272,6 +277,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ source_inputs, avatar }),
     }),
+  autosaveAvatarInput: (input: AvatarGenerateInput) =>
+    apiFetch<{ success: boolean; avatar: unknown }>("/agent/avatar/source-inputs", {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  autosaveAvatar: (avatar: AgentAvatar) =>
+    apiFetch<{ success: boolean; avatar: unknown }>("/agent/avatar", {
+      method: "PATCH",
+      body: JSON.stringify({ avatar }),
+    }),
   generateSalesRules: (avatar?: AgentAvatar, profile?: TrainingProfileInput) =>
     apiFetch<{ rules: AgentSalesRules }>("/agent/sales-rules/generate", {
       method: "POST",
@@ -280,6 +295,11 @@ export const api = {
   saveSalesRules: (rules: AgentSalesRules) =>
     apiFetch<{ success: boolean; sales_rules: unknown }>("/agent/sales-rules/save", {
       method: "POST",
+      body: JSON.stringify({ rules }),
+    }),
+  autosaveSalesRules: (rules: AgentSalesRules) =>
+    apiFetch<{ success: boolean; sales_rules: unknown }>("/agent/sales-rules", {
+      method: "PATCH",
       body: JSON.stringify({ rules }),
     }),
   rebuildAgentPrompt: () =>

@@ -9,6 +9,8 @@ import {
   GraduationCap,
   Loader2,
   MessageSquareText,
+  Minus,
+  Plus,
   RefreshCw,
   RotateCcw,
   Save,
@@ -26,6 +28,7 @@ import {
   api,
   AvatarGenerateInput,
   ChatMessage,
+  PromptRefinementResult,
   PromptVersion,
   TrainingProfileInput,
 } from "@/lib/api";
@@ -77,6 +80,14 @@ const EMPTY_AVATAR_INPUT: AvatarGenerateInput = {
 
 type StepId = "business" | "avatar-input" | "avatar-review" | "rules" | "launch";
 type Notice = { kind: "success" | "error"; text: string } | null;
+
+const PROMPT_REFINEMENT_CHIPS = [
+  "Trop d'emojis",
+  "Trop long",
+  "Pas assez direct",
+  "Mauvaise question posée",
+  "Ton trop vendeur",
+];
 
 const STEPS: {
   id: StepId;
@@ -199,6 +210,11 @@ export default function TrainingCenterPage() {
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [refineInstruction, setRefineInstruction] = useState("");
+  const [refinePreview, setRefinePreview] = useState<PromptRefinementResult | null>(null);
+  const [refineLoading, setRefineLoading] = useState(false);
+  const [refineApplying, setRefineApplying] = useState(false);
+  const [refineError, setRefineError] = useState<string | null>(null);
   const [promptVersions, setPromptVersions] = useState<PromptVersion[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(true);
   const [restoreLoading, setRestoreLoading] = useState<string | null>(null);
@@ -206,6 +222,18 @@ export default function TrainingCenterPage() {
   const [notice, setNotice] = useState<Notice>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const applyTrainingCenterState = useCallback((data: Awaited<ReturnType<typeof api.getTrainingCenter>>) => {
+    setProfile({ ...EMPTY_PROFILE, ...(data.profile?.profile || {}) });
+    setAvatarInput({ ...EMPTY_AVATAR_INPUT, ...(data.avatar?.source_inputs || {}) });
+    setAvatarJson(prettyJson(data.avatar?.avatar || {}));
+    setRulesJson(prettyJson(data.sales_rules?.rules || {}));
+  }, []);
+
+  const refreshTrainingCenterState = useCallback(async () => {
+    const data = await api.getTrainingCenter();
+    applyTrainingCenterState(data);
+  }, [applyTrainingCenterState]);
 
   useEffect(() => {
     createClient().auth.getSession().then(({ data }) => {
@@ -218,16 +246,13 @@ export default function TrainingCenterPage() {
     setNotice(null);
     try {
       const data = await api.getTrainingCenter();
-      setProfile({ ...EMPTY_PROFILE, ...(data.profile?.profile || {}) });
-      setAvatarInput({ ...EMPTY_AVATAR_INPUT, ...(data.avatar?.source_inputs || {}) });
-      setAvatarJson(prettyJson(data.avatar?.avatar || {}));
-      setRulesJson(prettyJson(data.sales_rules?.rules || {}));
+      applyTrainingCenterState(data);
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Chargement impossible" });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyTrainingCenterState]);
 
   const loadPromptVersions = useCallback(async () => {
     setVersionsLoading(true);
@@ -295,7 +320,7 @@ export default function TrainingCenterPage() {
   const canGenerateRules = isAvatarMeaningful(avatar);
   const canRebuildPrompt = isBusinessComplete(profile) && isAvatarComplete(avatar) && isRulesComplete(rules);
 
-  const actionDisabled = loading || savingProfile || generatingAvatar || savingAvatar || generatingRules || savingRules || rebuilding || chatLoading || Boolean(restoreLoading);
+  const actionDisabled = loading || savingProfile || generatingAvatar || savingAvatar || generatingRules || savingRules || rebuilding || chatLoading || refineLoading || refineApplying || Boolean(restoreLoading);
   const currentIndex = STEPS.findIndex((step) => step.id === activeStep);
   const canGoBack = currentIndex > 0;
   const canGoNext = currentIndex < STEPS.length - 1;
@@ -410,6 +435,7 @@ export default function TrainingCenterPage() {
         return;
       }
       await api.saveSalesRules(parsed.value);
+      await refreshTrainingCenterState();
       setNotice({ kind: "success", text: "Règles DM enregistrées" });
       setActiveStep("launch");
     } catch (error) {
@@ -428,6 +454,7 @@ export default function TrainingCenterPage() {
     setNotice(null);
     try {
       await api.rebuildAgentPrompt();
+      await refreshTrainingCenterState();
       setNotice({ kind: "success", text: "Prompt Angellos reconstruit et activé" });
       await loadPromptVersions();
     } catch (error) {
@@ -464,6 +491,52 @@ export default function TrainingCenterPage() {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       handleSendTestMessage();
+    }
+  }
+
+  async function handlePreviewPromptRefinement() {
+    const instruction = refineInstruction.trim();
+    if (!instruction) {
+      setRefineError("Ajoute une instruction avant d'appliquer.");
+      return;
+    }
+    setRefineLoading(true);
+    setRefineError(null);
+    setNotice(null);
+    try {
+      const preview = await api.refinePrompt(instruction, false);
+      setRefinePreview(preview);
+      setNotice({ kind: "success", text: "Diff prêt à valider" });
+    } catch (error) {
+      setRefinePreview(null);
+      setRefineError(error instanceof Error ? error.message : "Affinage impossible");
+    } finally {
+      setRefineLoading(false);
+    }
+  }
+
+  async function handleApplyPromptRefinement() {
+    const instruction = (refinePreview?.instruction || refineInstruction).trim();
+    if (!instruction) {
+      setRefineError("Instruction manquante.");
+      return;
+    }
+    setRefineApplying(true);
+    setRefineError(null);
+    setNotice(null);
+    try {
+      await api.refinePrompt(instruction, true, undefined, refinePreview?.updated_prompt);
+      setChatMessages([]);
+      setChatError(null);
+      setChatInput("");
+      setRefinePreview(null);
+      setRefineInstruction("");
+      await loadPromptVersions();
+      setNotice({ kind: "success", text: "Prompt affiné, activé et conversation de test réinitialisée" });
+    } catch (error) {
+      setRefineError(error instanceof Error ? error.message : "Validation impossible");
+    } finally {
+      setRefineApplying(false);
     }
   }
 
@@ -621,6 +694,11 @@ export default function TrainingCenterPage() {
                 input={chatInput}
                 chatLoading={chatLoading}
                 chatError={chatError}
+                refineInstruction={refineInstruction}
+                refinePreview={refinePreview}
+                refineLoading={refineLoading}
+                refineApplying={refineApplying}
+                refineError={refineError}
                 promptVersions={promptVersions}
                 versionsLoading={versionsLoading}
                 restoreLoading={restoreLoading}
@@ -634,6 +712,17 @@ export default function TrainingCenterPage() {
                   setChatError(null);
                   setChatInput("");
                 }}
+                onRefineInstructionChange={(value) => {
+                  setRefineInstruction(value);
+                  setRefineError(null);
+                }}
+                onRefineChip={(value) => {
+                  setRefineInstruction(value);
+                  setRefineError(null);
+                }}
+                onPreviewRefinement={handlePreviewPromptRefinement}
+                onApplyRefinement={handleApplyPromptRefinement}
+                onCancelRefinement={() => setRefinePreview(null)}
                 onRestorePrompt={handleRestorePrompt}
                 onRebuild={handleRebuildPrompt}
               />
@@ -965,6 +1054,11 @@ function LaunchStep({
   input,
   chatLoading,
   chatError,
+  refineInstruction,
+  refinePreview,
+  refineLoading,
+  refineApplying,
+  refineError,
   promptVersions,
   versionsLoading,
   restoreLoading,
@@ -974,6 +1068,11 @@ function LaunchStep({
   onSendTestMessage,
   onChatKeyDown,
   onResetChat,
+  onRefineInstructionChange,
+  onRefineChip,
+  onPreviewRefinement,
+  onApplyRefinement,
+  onCancelRefinement,
   onRestorePrompt,
   onRebuild,
 }: {
@@ -988,6 +1087,11 @@ function LaunchStep({
   input: string;
   chatLoading: boolean;
   chatError: string | null;
+  refineInstruction: string;
+  refinePreview: PromptRefinementResult | null;
+  refineLoading: boolean;
+  refineApplying: boolean;
+  refineError: string | null;
   promptVersions: PromptVersion[];
   versionsLoading: boolean;
   restoreLoading: string | null;
@@ -997,10 +1101,21 @@ function LaunchStep({
   onSendTestMessage: () => void;
   onChatKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   onResetChat: () => void;
+  onRefineInstructionChange: (value: string) => void;
+  onRefineChip: (value: string) => void;
+  onPreviewRefinement: () => void;
+  onApplyRefinement: () => void;
+  onCancelRefinement: () => void;
   onRestorePrompt: (versionId: string) => void;
   onRebuild: () => void;
 }) {
-  const avatarCount = AVATAR_ARRAY_FIELDS.reduce((total, field) => total + getStringList(avatar[field.key]).length, 0);
+  const avatarTextCount = [
+    avatar.persona_summary,
+    avatar.current_situation,
+    avatar.desired_situation,
+  ].filter((value) => typeof value === "string" && value.trim()).length;
+  const avatarListCount = AVATAR_ARRAY_FIELDS.reduce((total, field) => total + getStringList(avatar[field.key]).length, 0);
+  const avatarCount = avatarTextCount + avatarListCount;
   const rulesCount = RULE_FIELDS.reduce((total, field) => total + getStringList(rules[field.key]).length, 0);
 
   return (
@@ -1044,6 +1159,19 @@ function LaunchStep({
           onSend={onSendTestMessage}
           onKeyDown={onChatKeyDown}
           onReset={onResetChat}
+        />
+        <PromptRefinementPanel
+          instruction={refineInstruction}
+          preview={refinePreview}
+          loading={refineLoading}
+          applying={refineApplying}
+          error={refineError}
+          disabled={disabled}
+          onInstructionChange={onRefineInstructionChange}
+          onChip={onRefineChip}
+          onPreview={onPreviewRefinement}
+          onApply={onApplyRefinement}
+          onCancel={onCancelRefinement}
         />
         <PromptHistory
           versions={promptVersions}
@@ -1149,6 +1277,115 @@ function TestConversation({
   );
 }
 
+function PromptRefinementPanel({
+  instruction,
+  preview,
+  loading,
+  applying,
+  error,
+  disabled,
+  onInstructionChange,
+  onChip,
+  onPreview,
+  onApply,
+  onCancel,
+}: {
+  instruction: string;
+  preview: PromptRefinementResult | null;
+  loading: boolean;
+  applying: boolean;
+  error: string | null;
+  disabled: boolean;
+  onInstructionChange: (value: string) => void;
+  onChip: (value: string) => void;
+  onPreview: () => void;
+  onApply: () => void;
+  onCancel: () => void;
+}) {
+  const previewReady = Boolean(preview);
+  const busy = loading || applying;
+  const canPreview = !disabled && !busy && instruction.trim().length > 0;
+
+  return (
+    <section style={styles.refinePanel}>
+      <div style={styles.toolHeader}>
+        <div>
+          <h3 style={styles.cardTitle}>Affiner Angellos</h3>
+          <p style={styles.toolText}>Transforme une remarque de test en modification ciblée du prompt.</p>
+        </div>
+      </div>
+
+      <textarea
+        value={instruction}
+        rows={5}
+        disabled={disabled || busy}
+        onChange={(event) => onInstructionChange(event.target.value)}
+        placeholder={"Dis-moi ce qui ne va pas dans cette réponse\nou ce que tu veux changer..."}
+        style={styles.refineInput}
+      />
+
+      <div style={styles.chipRow}>
+        {PROMPT_REFINEMENT_CHIPS.map((chip) => (
+          <button
+            key={chip}
+            type="button"
+            disabled={disabled || busy}
+            onClick={() => onChip(chip)}
+            style={chipButton(disabled || busy)}
+          >
+            {chip}
+          </button>
+        ))}
+      </div>
+
+      {error && <p style={styles.inlineError}>{error}</p>}
+
+      <div style={styles.actionRow}>
+        <button type="button" onClick={onPreview} disabled={!canPreview} style={primaryButton(!canPreview)}>
+          {loading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+          Appliquer →
+        </button>
+        {previewReady && (
+          <button type="button" onClick={onCancel} disabled={busy} style={ghostButton(busy)}>
+            Annuler le diff
+          </button>
+        )}
+      </div>
+
+      {preview && (
+        <div style={styles.diffBox}>
+          <div style={styles.diffHeader}>
+            <div>
+              <span style={styles.diffEyebrow}>Section ciblée</span>
+              <strong style={styles.diffTitle}>{preview.target_section || "Prompt"}</strong>
+            </div>
+            <span style={styles.diffCount}>{preview.diff.filter((line) => line.type !== "keep").length} lignes</span>
+          </div>
+          {preview.summary && <p style={styles.diffSummary}>{preview.summary}</p>}
+          <div style={styles.diffList}>
+            {preview.diff.length === 0 ? (
+              <p style={styles.emptyText}>Claude n'a pas renvoyé de diff détaillé.</p>
+            ) : (
+              preview.diff.slice(0, 80).map((line, index) => (
+                <div key={`${line.type}-${index}`} style={diffLineStyle(line.type)}>
+                  <span style={styles.diffIcon}>
+                    {line.type === "add" ? <Plus size={12} /> : line.type === "remove" ? <Minus size={12} /> : null}
+                  </span>
+                  <code style={styles.diffCode}>{line.line || " "}</code>
+                </div>
+              ))
+            )}
+          </div>
+          <button type="button" onClick={onApply} disabled={disabled || busy} style={primaryButton(disabled || busy)}>
+            {applying ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+            Valider et activer
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function PromptHistory({
   versions,
   loading,
@@ -1182,7 +1419,7 @@ function PromptHistory({
               <div key={version.id} style={styles.versionRow}>
                 <div style={{ minWidth: 0 }}>
                   <div style={styles.versionTitle}>
-                    {version.source || "manual"}
+                    <span style={styles.versionName}>{formatPromptVersionTitle(version)}</span>
                     {active && <span style={styles.activePill}>Active</span>}
                   </div>
                   <div style={styles.versionMeta}>{formatDate(version.created_at)}</div>
@@ -1308,6 +1545,11 @@ function formatDate(value: string): string {
   return `${date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })} à ${date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
+function formatPromptVersionTitle(version: PromptVersion): string {
+  const label = version.refinement_instruction || version.source || "manual";
+  return label.length > 58 ? `${label.slice(0, 55)}...` : label;
+}
+
 function stepDone(step: StepId, checklist: ReturnType<typeof buildTrainingChecklist>): boolean {
   if (step === "business") return checklist.business === "Complet";
   if (step === "avatar-input") return checklist.business === "Complet";
@@ -1417,6 +1659,40 @@ function ghostButton(disabled: boolean): React.CSSProperties {
     fontWeight: 750,
     cursor: disabled ? "not-allowed" : "pointer",
     whiteSpace: "nowrap",
+  };
+}
+
+function chipButton(disabled: boolean): React.CSSProperties {
+  return {
+    minHeight: 30,
+    border: "1px solid #dbe4ee",
+    borderRadius: 8,
+    padding: "0 10px",
+    background: disabled ? "#f1f5f9" : "#f8fafc",
+    color: disabled ? "#94a3b8" : "#334155",
+    fontSize: 12,
+    fontWeight: 750,
+    cursor: disabled ? "not-allowed" : "pointer",
+    whiteSpace: "nowrap",
+  };
+}
+
+function diffLineStyle(type: "add" | "remove" | "keep"): React.CSSProperties {
+  const palette = {
+    add: { background: "#ecfdf5", color: "#166534", border: "#bbf7d0" },
+    remove: { background: "#fef2f2", color: "#991b1b", border: "#fecaca" },
+    keep: { background: "#f8fafc", color: "#64748b", border: "#edf1f5" },
+  }[type];
+  return {
+    display: "grid",
+    gridTemplateColumns: "18px minmax(0, 1fr)",
+    alignItems: "start",
+    gap: 6,
+    border: `1px solid ${palette.border}`,
+    borderRadius: 6,
+    background: palette.background,
+    color: palette.color,
+    padding: "6px 8px",
   };
 }
 
@@ -1929,7 +2205,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   launchToolsGrid: {
     display: "grid",
-    gridTemplateColumns: "minmax(0, 1.15fr) minmax(300px, 0.85fr)",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
     gap: 14,
     marginTop: 14,
   },
@@ -2014,6 +2290,96 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     fontWeight: 700,
   },
+  refinePanel: {
+    border: "1px solid #dbeafe",
+    borderRadius: 8,
+    padding: 14,
+    background: "#fbfdff",
+    minWidth: 0,
+  },
+  refineInput: {
+    width: "100%",
+    border: "1px solid #dfe5ee",
+    borderRadius: 8,
+    background: "#fff",
+    color: "#111827",
+    fontSize: 13,
+    padding: "10px 12px",
+    outline: "none",
+    fontFamily: "inherit",
+    resize: "vertical",
+    lineHeight: 1.45,
+  },
+  chipRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 10,
+  },
+  diffBox: {
+    border: "1px solid #dbeafe",
+    borderRadius: 8,
+    background: "#fff",
+    padding: 12,
+    marginTop: 14,
+    display: "grid",
+    gap: 10,
+  },
+  diffHeader: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  diffEyebrow: {
+    display: "block",
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: 0,
+    marginBottom: 3,
+  },
+  diffTitle: {
+    display: "block",
+    color: "#0f172a",
+    fontSize: 13,
+    lineHeight: 1.25,
+  },
+  diffCount: {
+    borderRadius: 8,
+    background: "#eef6ff",
+    color: "#0369a1",
+    padding: "3px 7px",
+    fontSize: 11,
+    fontWeight: 850,
+    whiteSpace: "nowrap",
+  },
+  diffSummary: {
+    margin: 0,
+    color: "#475569",
+    fontSize: 12,
+    lineHeight: 1.45,
+  },
+  diffList: {
+    maxHeight: 260,
+    overflowY: "auto",
+    display: "grid",
+    gap: 5,
+  },
+  diffIcon: {
+    display: "grid",
+    placeItems: "center",
+    minHeight: 18,
+  },
+  diffCode: {
+    color: "inherit",
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+    fontSize: 11,
+    lineHeight: 1.45,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+  },
   chatInputRow: {
     display: "flex",
     alignItems: "flex-end",
@@ -2055,6 +2421,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     fontWeight: 850,
     minWidth: 0,
+  },
+  versionName: {
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   versionMeta: {
     color: "#94a3b8",

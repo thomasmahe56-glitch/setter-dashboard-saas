@@ -195,6 +195,25 @@ export interface PromptVersion {
   is_active: boolean;
   source: string | null;
   insight_id: string | null;
+  refinement_instruction?: string | null;
+  refinement_applied_at?: string | null;
+  previous_version_id?: string | null;
+}
+
+export interface PromptRefinementResult {
+  success: boolean;
+  applied: boolean;
+  prompt_proposed: string;
+  updated_prompt: string;
+  diff: { type: "add" | "remove" | "keep"; line: string }[];
+  target_section: string;
+  summary: string;
+  changes: string[];
+  instruction: string;
+  prompt_version_id?: string;
+  previous_version_id?: string | null;
+  refinement_applied_at?: string;
+  reset_test_conversation: boolean;
 }
 
 export const api = {
@@ -266,6 +285,16 @@ export const api = {
   rebuildAgentPrompt: () =>
     apiFetch<{ success: boolean; prompt_version_id: string }>("/agent/prompt/rebuild", {
       method: "POST",
+    }),
+  refinePrompt: (instruction: string, apply = false, active_prompt?: string, prompt_proposed?: string) =>
+    apiFetch<PromptRefinementResult>("/refine-prompt", {
+      method: "POST",
+      body: JSON.stringify({
+        instruction,
+        apply,
+        active_prompt: active_prompt?.trim() || undefined,
+        prompt_proposed: prompt_proposed?.trim() || undefined,
+      }),
     }),
   playground: (messages: ChatMessage[], calendly_url?: string, sales_page_url?: string) =>
     apiFetch<{ response: string }>("/playground", {

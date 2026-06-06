@@ -20,11 +20,11 @@ export function useConversations() {
         await supabase.auth.signOut();
         window.location.href = "/login";
       } else if (e instanceof ApiAuthError) {
-        setError(`Connexion Supabase OK, mais l'API refuse le token (${e.status}) : ${e.detail}`);
+        setError(`Supabase connection OK, but the API rejected the token (${e.status}): ${e.detail}`);
       } else if (e instanceof Error && e.message === "API_URL_MISSING") {
-        setError("NEXT_PUBLIC_API_URL n'est pas configurée");
+        setError("NEXT_PUBLIC_API_URL is not configured");
       } else {
-        setError("Erreur de connexion");
+        setError("Connection error");
       }
     } finally {
       setLoading(false);

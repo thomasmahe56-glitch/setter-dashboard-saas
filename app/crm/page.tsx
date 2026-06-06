@@ -67,7 +67,7 @@ export default function CRMPage() {
         if (!cancelled) setSelectedDetail(data);
       })
       .catch(() => {
-        if (!cancelled) setDetailError("Impossible de charger la conversation");
+        if (!cancelled) setDetailError("Unable to load conversation");
       })
       .finally(() => {
         if (!cancelled) setDetailLoading(false);
@@ -99,12 +99,12 @@ export default function CRMPage() {
       ) : (
         <div className="crm-page-body">
           <div className="crm-card">
-            {/* Sidebar — toujours visible sur desktop, caché sur mobile si panel ouvert */}
+            {/* Sidebar - always visible on desktop, hidden on mobile when panel is open */}
             <div className={`crm-sidebar ${mobilePanel ? "crm-mobile-hidden" : ""}`}>
               <ProspectList conversations={conversations} selectedId={selectedId} onSelect={handleSelect} />
             </div>
 
-            {/* Panel droit — toujours visible sur desktop */}
+            {/* Right panel - always visible on desktop */}
             <div className={`crm-detail ${!mobilePanel && !selected ? "" : ""} ${mobilePanel ? "crm-mobile-visible" : "crm-mobile-detail-idle"}`}>
               {selected ? (
                 <ConversationPanel
@@ -118,7 +118,7 @@ export default function CRMPage() {
               ) : (
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#8e8e8e", fontSize: 13, gap: 8 }}>
                   <span style={{ fontSize: 32 }}>💬</span>
-                  Sélectionne un prospect pour voir la conversation
+                  Select a prospect to view the conversation
                 </div>
               )}
             </div>

@@ -19,7 +19,7 @@ import { createClient } from "@/lib/supabase/client";
 
 const TABS = [
   { href: "/crm", label: "CRM", icon: MessageCircle },
-  { href: "/relance", label: "Relance", icon: Clock3 },
+  { href: "/relance", label: "Follow-ups", icon: Clock3 },
   { href: "/kpi", label: "KPIs", icon: BarChart3 },
   { href: "/insights", label: "Insights", icon: Lightbulb },
   { href: "/agent/training-center", label: "Training", icon: GraduationCap },
@@ -80,8 +80,8 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
         className="app-nav-toggle"
         type="button"
         onClick={() => setOpen((value) => !value)}
-        title={open ? "Fermer le menu" : "Ouvrir le menu"}
-        aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
+        title={open ? "Close menu" : "Open menu"}
+        aria-label={open ? "Close menu" : "Open menu"}
         style={{
           height: 40,
           width: 40,
@@ -138,15 +138,15 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
       <div className="app-nav-actions" style={{ padding: "0 10px 14px", display: "flex", flexDirection: "column", gap: 4 }}>
         {lastRefresh && open && (
           <div style={{ fontSize: 12, color: "#8e8e8e", padding: "0 12px 6px" }}>
-            MAJ {lastRefresh.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+            Updated {lastRefresh.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
           </div>
         )}
         {onRefresh && (
           <button
             type="button"
             onClick={onRefresh}
-            title="Rafraîchir"
-            aria-label="Rafraîchir"
+            title="Refresh"
+            aria-label="Refresh"
             style={{
               height: 44,
               borderRadius: 10,
@@ -164,14 +164,14 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
             }}
           >
             <RefreshCw size={18} />
-            {open && <span>Rafraîchir</span>}
+            {open && <span>Refresh</span>}
           </button>
         )}
         <button
           type="button"
           onClick={handleLogout}
-          title="Se déconnecter"
-          aria-label="Se déconnecter"
+          title="Log out"
+          aria-label="Log out"
           style={{
             height: 44,
             borderRadius: 10,
@@ -189,7 +189,7 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
           }}
         >
           <LogOut size={18} />
-          {open && <span>Déconnexion</span>}
+          {open && <span>Log out</span>}
         </button>
       </div>
     </aside>

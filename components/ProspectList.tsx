@@ -45,7 +45,7 @@ export function ProspectList({ conversations, selectedId, onSelect }: Props) {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Rechercher"
+          placeholder="Search"
           style={{
             width: "100%", background: "#f5f5f5", border: "none", borderRadius: 9999,
             padding: "8px 12px 8px 34px", fontSize: 13, color: "#0a0a0a",
@@ -66,7 +66,7 @@ export function ProspectList({ conversations, selectedId, onSelect }: Props) {
               color: active ? "#fff" : "#8e8e8e",
               cursor: "pointer", transition: "background 0.15s, color 0.15s",
             }}>
-              {s === "all" ? "Tous" : STATUS_LABELS[s as Status]}
+              {s === "all" ? "All" : STATUS_LABELS[s as Status]}
             </button>
           );
         })}
@@ -114,7 +114,7 @@ export function ProspectList({ conversations, selectedId, onSelect }: Props) {
                   </span>
                 </div>
                 <p style={{ fontSize: 12, color: "#8e8e8e", margin: "0 0 6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {c.message || "Aucun message"}
+                  {c.message || "No message"}
                 </p>
                 <StatusBadge status={c.status} />
               </div>
@@ -123,7 +123,7 @@ export function ProspectList({ conversations, selectedId, onSelect }: Props) {
         })}
         {filtered.length === 0 && (
           <div style={{ padding: 32, textAlign: "center", color: "#8e8e8e", fontSize: 13 }}>
-            Aucun prospect
+            No prospects
           </div>
         )}
       </div>

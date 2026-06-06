@@ -51,9 +51,9 @@ export default function RelancePage() {
         await createClient().auth.signOut();
         window.location.href = "/login";
       } else if (e instanceof ApiAuthError) {
-        setError(`Connexion Supabase OK, mais l'API refuse le token (${e.status}) : ${e.detail}`);
+        setError(`Supabase connection OK, but the API rejected the token (${e.status}): ${e.detail}`);
       } else {
-        setError("Erreur de connexion");
+        setError("Connection error");
       }
     } finally {
       setLoading(false);
@@ -107,9 +107,9 @@ export default function RelancePage() {
   };
 
   const stepCards = [
-    { title: "Auto 23 h", label: "Automatique", color: "#1D9E75", icon: Send, body: "Relance courte avant la fermeture de la fenêtre Instagram/ManyChat." },
-    { title: "J+3", label: "Assistée", color: "#0095F6", icon: Sparkles, body: "L'IA prépare une relance contextuelle à envoyer manuellement." },
-    { title: "J+10", label: "Assistée", color: "#8b5cf6", icon: Clock3, body: "Dernière relance douce, plutôt porte ouverte que pression commerciale." },
+    { title: "Auto 23h", label: "Automatic", color: "#1D9E75", icon: Send, body: "Short follow-up before the Instagram/ManyChat window closes." },
+    { title: "D+3", label: "Assisted", color: "#0095F6", icon: Sparkles, body: "The AI prepares a contextual follow-up to send manually." },
+    { title: "D+10", label: "Assisted", color: "#8b5cf6", icon: Clock3, body: "Final gentle follow-up, more open door than sales pressure." },
   ];
 
   return (
@@ -124,9 +124,9 @@ export default function RelancePage() {
           <div className="app-page-inner relance-inner">
             <div className="app-page-heading" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
               <div>
-                <h1 className="app-page-title" style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 4px" }}>Relance</h1>
+                <h1 className="app-page-title" style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 4px" }}>Follow-ups</h1>
                 <p style={{ fontSize: 13, color: "#8e8e8e", margin: 0 }}>
-                  Séquence prévue : automatique à 23 h, puis assistée par l'IA à J+3 et J+10.
+                  Planned sequence: automatic at 23h, then AI-assisted at D+3 and D+10.
                 </p>
               </div>
               <div style={{
@@ -136,7 +136,7 @@ export default function RelancePage() {
                 fontSize: 12, fontWeight: 700, flexShrink: 0,
               }}>
                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e" }} />
-                Mode conforme Meta
+                Meta compliant mode
               </div>
             </div>
 
@@ -160,20 +160,20 @@ export default function RelancePage() {
             <div style={{ ...card, marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 14 }}>
                 <div>
-                  <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0a0a0a", margin: "0 0 3px" }}>Relances dues</h2>
+                  <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0a0a0a", margin: "0 0 3px" }}>Due follow-ups</h2>
                   <p style={{ fontSize: 12, color: "#8e8e8e", margin: 0 }}>
-                    Calculées depuis l'historique des messages. Les anciennes conversations sans timestamp utilisent leur date de création.
+                    Calculated from message history. Older conversations without timestamps use their creation date.
                   </p>
                 </div>
                 <span style={{ fontSize: 12, fontWeight: 700, color: "#8e8e8e", background: "#f5f5f5", padding: "4px 10px", borderRadius: 9999 }}>
-                  {followUps.length} relance{followUps.length > 1 ? "s" : ""}
+                  {followUps.length} follow-up{followUps.length > 1 ? "s" : ""}
                 </span>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {followUps.length === 0 ? (
                   <div style={{ padding: "30px 12px", textAlign: "center", color: "#8e8e8e", fontSize: 13 }}>
-                    Aucune relance due pour le moment.
+                    No follow-ups due right now.
                   </div>
                 ) : followUps.map((item) => {
                   const handle = getInstagramHandle(item);
@@ -203,12 +203,12 @@ export default function RelancePage() {
                                 fontSize: 11, fontWeight: 800, color: "#16a34a",
                                 background: "#f0fdf4", padding: "2px 8px", borderRadius: 9999,
                               }}>
-                                Envoyée
+                                Sent
                               </span>
                             )}
                           </div>
                           <p style={{ fontSize: 12, color: "#8e8e8e", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {item.message || "Aucun dernier message"} · {item.hours_since_user} h depuis le dernier message prospect
+                            {item.message || "No last message"} · {item.hours_since_user}h since the last prospect message
                           </p>
                         </div>
                         <div className="relance-actions" style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
@@ -222,7 +222,7 @@ export default function RelancePage() {
                               opacity: isSending ? 0.7 : 1,
                             }}>
                               {isSending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-                              {isSent ? "Envoyée" : "Envoyer H23"}
+                            {isSent ? "Sent" : "Send H23"}
                             </button>
                           ) : (
                             <button type="button" onClick={() => handlePreview(item)} disabled={isLoadingPreview} style={{
@@ -232,7 +232,7 @@ export default function RelancePage() {
                             cursor: isLoadingPreview ? "not-allowed" : "pointer", opacity: isLoadingPreview ? 0.6 : 1,
                           }}>
                             {isLoadingPreview ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                            Générer
+                            Generate
                           </button>
                           )}
                           <button type="button" onClick={() => handleCopy(item)} disabled={!preview} style={{
@@ -242,7 +242,7 @@ export default function RelancePage() {
                             cursor: preview ? "pointer" : "not-allowed",
                           }}>
                             {copiedId === item.conversation_id ? <Check size={13} /> : <Copy size={13} />}
-                            {copiedId === item.conversation_id ? "Copié" : "Copier"}
+                            {copiedId === item.conversation_id ? "Copied" : "Copy"}
                           </button>
                           {handle && (
                             <a href={`https://instagram.com/${handle}`} target="_blank" rel="noreferrer" style={{
@@ -270,9 +270,9 @@ export default function RelancePage() {
             </div>
 
             <div style={{ ...card }}>
-              <h2 style={{ fontSize: 15, fontWeight: 800, color: "#0a0a0a", margin: "0 0 8px" }}>Règle d'envoi</h2>
+              <h2 style={{ fontSize: 15, fontWeight: 800, color: "#0a0a0a", margin: "0 0 8px" }}>Sending rule</h2>
               <p style={{ fontSize: 13, lineHeight: 1.5, color: "#8e8e8e", margin: 0 }}>
-                Auto uniquement avant 24 h. Après, l'IA prépare le message et le coach l'envoie manuellement depuis Instagram ou ManyChat Inbox.
+                Auto only before 24h. After that, the AI prepares the message and the coach sends it manually from Instagram or ManyChat Inbox.
               </p>
             </div>
           </div>

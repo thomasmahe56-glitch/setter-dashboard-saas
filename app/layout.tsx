@@ -5,8 +5,8 @@ import { config } from "@/lib/config";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: `Setter Dashboard — ${config.agentName}`,
-  description: `CRM agent setter IA pour ${config.agentName}`,
+  title: `Setter Dashboard - ${config.agentName}`,
+  description: `AI setter CRM for ${config.agentName}`,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

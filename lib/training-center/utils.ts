@@ -19,11 +19,11 @@ export type TrainingProgressInput = {
 };
 
 export type TrainingChecklist = {
-  business: "Complet" | "À compléter";
-  avatar: "Complet" | "À valider" | "Généré" | "À compléter";
-  rules: "Complet" | "Générées" | "À valider" | "À compléter";
-  activation: "Prompt reconstruit" | "À faire";
-  test: "Test réalisé" | "À faire";
+  business: "Complete" | "To complete";
+  avatar: "Complete" | "To review" | "Generated" | "To complete";
+  rules: "Complete" | "Generated" | "To review" | "To complete";
+  activation: "Prompt rebuilt" | "To do";
+  test: "Test completed" | "To do";
 };
 
 export type AngelosLevel = {
@@ -56,13 +56,13 @@ export function parseJsonObject<T>(value: string): JsonParseResult<T> {
   try {
     const parsed = JSON.parse(value) as T;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return { ok: false, message: "Le contenu doit être un objet JSON." };
+      return { ok: false, message: "The content must be a JSON object." };
     }
     return { ok: true, value: parsed };
   } catch {
     return {
       ok: false,
-      message: "Le JSON contient une erreur de syntaxe. Vérifie les virgules, guillemets et crochets.",
+      message: "The JSON contains a syntax error. Check commas, quotes, and brackets.",
     };
   }
 }
@@ -191,45 +191,45 @@ export function buildTrainingChecklist({
   chatMessages,
 }: TrainingProgressInput): TrainingChecklist {
   return {
-    business: isBusinessComplete(profile) ? "Complet" : "À compléter",
+    business: isBusinessComplete(profile) ? "Complete" : "To complete",
     avatar: isAvatarComplete(avatar)
-      ? "Complet"
+      ? "Complete"
       : isAvatarMeaningful(avatar)
-        ? "À valider"
+        ? "To review"
         : Object.keys(avatar || {}).length > 0
-          ? "Généré"
-          : "À compléter",
+          ? "Generated"
+          : "To complete",
     rules: isRulesComplete(rules)
-      ? "Complet"
+      ? "Complete"
       : isRulesMeaningful(rules)
-        ? "À valider"
-        : "À compléter",
-    activation: promptRebuilt ? "Prompt reconstruit" : "À faire",
-    test: hasCompletedPlayground(chatMessages) ? "Test réalisé" : "À faire",
+        ? "To review"
+        : "To complete",
+    activation: promptRebuilt ? "Prompt rebuilt" : "To do",
+    test: hasCompletedPlayground(chatMessages) ? "Test completed" : "To do",
   };
 }
 
 export function getAngelosLevel(score: number): AngelosLevel {
   if (score <= 30) {
     return {
-      label: "Assistant générique",
-      description: "Angellos manque encore de contexte pour vendre avec précision.",
+      label: "Generic assistant",
+      description: "Angellos still needs more context to sell with precision.",
     };
   }
   if (score <= 60) {
     return {
-      label: "Setter en entraînement",
-      description: "Les bases sont là, mais son jugement commercial reste à affiner.",
+      label: "Setter in training",
+      description: "The basics are there, but its sales judgment still needs refining.",
     };
   }
   if (score <= 85) {
     return {
-      label: "Setter spécialisé",
-      description: "Angellos comprend ton offre, tes prospects et tes règles principales.",
+      label: "Specialized setter",
+      description: "Angellos understands your offer, prospects, and core rules.",
     };
   }
   return {
-    label: "Clone commercial prêt à tester",
-    description: "Le contexte est assez robuste pour tester sur de vraies conversations.",
+    label: "Sales clone ready to test",
+    description: "The context is robust enough to test on real conversations.",
   };
 }

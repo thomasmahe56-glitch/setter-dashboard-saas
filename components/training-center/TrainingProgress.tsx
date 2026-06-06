@@ -12,14 +12,14 @@ export function TrainingProgress({ progress, businessScore, level, checklist }: 
   return (
     <>
       <div style={styles.progressBlock}>
-        <span style={styles.progressLabel}>Progression</span>
+        <span style={styles.progressLabel}>Progress</span>
         <strong style={styles.progressValue}>{progress}%</strong>
         <div style={styles.progressTrack}>
           <div style={{ ...styles.progressFill, width: `${progress}%` }} />
         </div>
-        <span style={styles.progressHint}>{businessScore}/7 champs business essentiels</span>
+        <span style={styles.progressHint}>{businessScore}/7 essential business fields</span>
         <div style={styles.levelCard}>
-          <span style={styles.levelLabel}>Niveau Angellos</span>
+          <span style={styles.levelLabel}>Angellos level</span>
           <strong style={styles.levelTitle}>{level.label}</strong>
           <span style={styles.levelText}>{level.description}</span>
         </div>
@@ -28,8 +28,8 @@ export function TrainingProgress({ progress, businessScore, level, checklist }: 
       <div style={styles.checklistBlock}>
         {[
           ["Business Setup", checklist.business],
-          ["Avatar Client", checklist.avatar],
-          ["Règles DM", checklist.rules],
+          ["Client Avatar", checklist.avatar],
+          ["DM Rules", checklist.rules],
           ["Activation", checklist.activation],
           ["Test", checklist.test],
         ].map(([label, status]) => (

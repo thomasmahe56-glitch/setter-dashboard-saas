@@ -80,7 +80,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
   }
 
   async function handleDelete() {
-    if (!confirm(`Supprimer ${name} ?`)) return;
+    if (!confirm(`Delete ${name}?`)) return;
     try { await api.delete(c.id); onDelete(c.id); } catch {}
   }
 
@@ -116,7 +116,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
       setRefineInstruction("");
       setRefineOpen(false);
     } catch {
-      setRefineError("Angellos n'a pas pu affiner le message. Réessaie.");
+      setRefineError("Angellos couldn't refine the message. Try again.");
     }
     setRefining(false);
   }
@@ -204,7 +204,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
               opacity: activating ? 0.6 : 1,
             }}>
               <Zap size={14} />
-              {activating ? "..." : "Activer"}
+              {activating ? "..." : "Activate"}
             </button>
           ) : (
             <button onClick={handleDeactivate} disabled={activating} style={{
@@ -216,7 +216,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
               opacity: activating ? 0.6 : 1,
             }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
-              {activating ? "..." : "Désactiver"}
+              {activating ? "..." : "Deactivate"}
             </button>
           )}
 
@@ -237,7 +237,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
         padding: "6px 24px", borderBottom: "1px solid #f5f5f5",
         background: "#fafafa", flexShrink: 0,
       }}>
-        <span style={{ fontSize: 11, color: "#8e8e8e", fontWeight: 500, marginRight: 2 }}>Mode :</span>
+        <span style={{ fontSize: 11, color: "#8e8e8e", fontWeight: 500, marginRight: 2 }}>Mode:</span>
         {(["auto", "supervised", "disabled"] as const).map((mode) => {
           const isActive = (c.automation_mode ?? "supervised") === mode;
           const col = {
@@ -245,7 +245,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
             supervised: { activeBg: "#d97706", activeColor: "#fff", idleBg: "#fffbeb", idleColor: "#d97706" },
             disabled: { activeBg: "#6b7280", activeColor: "#fff", idleBg: "#f5f5f5", idleColor: "#6b7280" },
           }[mode];
-          const label = { auto: "Auto", supervised: "Supervisé", disabled: "Off" }[mode];
+          const label = { auto: "Auto", supervised: "Supervised", disabled: "Off" }[mode];
           return (
             <button key={mode} onClick={() => handleModeChange(mode)} disabled={modeChanging} style={{
               padding: "3px 10px", borderRadius: 9999, fontSize: 11, fontWeight: 600, border: "none",
@@ -271,7 +271,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
           fontSize: 12, fontWeight: 500, color: "#8e8e8e", flexShrink: 0,
         }}>
           <Sparkles size={14} color="#0095F6" />
-          Agent IA actif — réponses automatiques en cours
+          AI agent active - automatic replies in progress
         </div>
       )}
 
@@ -283,10 +283,10 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
         }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#d97706", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Message en attente
+              Pending message
             </span>
             <button onClick={handleIgnorePending} style={{ fontSize: 11, color: "#8e8e8e", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-              Ignorer
+              Ignore
             </button>
           </div>
           <p style={{ fontSize: 13, color: "#0a0a0a", margin: "0 0 10px", lineHeight: 1.5 }}>
@@ -306,7 +306,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
               }}
             >
               {copied ? <Check size={13} /> : <Copy size={13} />}
-              {copied ? "Copié !" : "Copier"}
+              {copied ? "Copied!" : "Copy"}
             </button>
             {messageUrl && (
               <a
@@ -322,7 +322,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                 }}
               >
                 <ExternalLink size={13} />
-                Ouvrir {channelName}
+                Open {channelName}
               </a>
             )}
             <button
@@ -337,7 +337,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                 fontSize: 12, fontWeight: 500, cursor: "pointer",
               }}
             >
-              ✨ Demander à Angellos d&apos;affiner
+              ✨ Ask Angellos to refine
             </button>
             <button
               type="button"
@@ -348,7 +348,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                 color: "#8e8e8e", fontSize: 12, fontWeight: 500, cursor: "pointer",
               }}
             >
-              Ignorer
+              Ignore
             </button>
           </div>
 
@@ -357,7 +357,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
               <textarea
                 value={refineInstruction}
                 onChange={(e) => setRefineInstruction(e.target.value)}
-                placeholder='Ex : "Rends-le plus chaleureux", "Il a mentionné une blessure, intègre ça", "Trop long, raccourcis"'
+                placeholder='Example: "Make it warmer", "They mentioned an injury, include that", "Too long, shorten it"'
                 rows={2}
                 style={{
                   width: "100%", padding: "8px 12px",
@@ -387,7 +387,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                 }}
               >
                 {refining ? <Loader2 size={13} className="animate-spin" /> : "✨"}
-                {refining ? "Angellos affine..." : "Affiner le message"}
+                {refining ? "Angellos is refining..." : "Refine message"}
               </button>
             </div>
           )}
@@ -400,7 +400,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#8e8e8e", fontSize: 12 }}>
               <Loader2 className="animate-spin" size={14} color="#0095F6" />
-              Chargement de la conversation
+              Loading conversation
             </div>
             <MessageSkeleton />
           </div>
@@ -410,7 +410,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
           </div>
         ) : history.length === 0 ? (
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#8e8e8e", fontSize: 13 }}>
-            Aucun historique
+            No history
           </div>
         ) : history.map((msg, i) => {
           const isAgent = msg.role === "assistant";
@@ -425,7 +425,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                     textAlign: isAgent ? "right" : "left",
                     margin: `${i > 0 ? "6px" : "0"} 4px 0`,
                   }}>
-                    {isAgent ? "Agent IA" : contactLabel}
+                    {isAgent ? "AI agent" : contactLabel}
                   </span>
                 )}
                 <div style={{

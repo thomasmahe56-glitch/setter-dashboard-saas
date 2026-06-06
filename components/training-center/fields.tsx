@@ -111,7 +111,7 @@ export function JsonEditor({
         {title}
       </span>
       <span style={styles.debugWarning}>
-        Réservé aux utilisateurs avancés. Une erreur de format peut empêcher l'enregistrement.
+        Reserved for advanced users. A formatting error can prevent saving.
       </span>
       {!parsed.ok && <span style={styles.inlineError}>{parsed.message}</span>}
       <textarea value={value} rows={rows} spellCheck={false} onChange={(event) => onChange(event.target.value)} style={styles.jsonTextarea} />
@@ -123,7 +123,7 @@ export function AdvancedToggle({ open, onClick }: { open: boolean; onClick: () =
   return (
     <button type="button" onClick={onClick} style={ghostButton(false)}>
       <ChevronDown size={15} style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms ease" }} />
-      {open ? "Masquer le debug" : "Mode avancé / debug"}
+      {open ? "Hide debug" : "Advanced / debug mode"}
     </button>
   );
 }

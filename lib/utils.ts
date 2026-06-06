@@ -7,11 +7,11 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const STATUS_LABELS: Record<Status, string> = {
-  nouveau: "Nouveau",
-  en_cours: "En cours",
-  page_envoyee: "Page envoyée",
-  appel_booke: "Appel booké",
-  signe: "Signé",
+  nouveau: "New",
+  en_cours: "In progress",
+  page_envoyee: "Page sent",
+  appel_booke: "Call booked",
+  signe: "Signed",
 };
 
 export const STATUS_STYLE: Record<Status, { color: string; bg: string; border: string }> = {
@@ -37,7 +37,7 @@ export function getInitials(name: string): string {
 export function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "À l'instant";
+  if (mins < 1) return "Just now";
   if (mins < 60) return `${mins}m`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h`;

@@ -43,15 +43,15 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) +
-    " à " + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }).replace(":", "h");
+  return d.toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" }) +
+    " at " + d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
 
 function StatusBadgeInsight({ status }: { status: Insight["status"] }) {
   const map = {
-    pending: { label: "En attente", bg: "#fef3c7", color: "#92400e" },
-    applied: { label: "Appliqué",   bg: "#f0fdf4", color: "#16a34a" },
-    ignored: { label: "Ignoré",     bg: "#f0f0f0", color: "#8e8e8e" },
+    pending: { label: "Pending", bg: "#fef3c7", color: "#92400e" },
+    applied: { label: "Applied", bg: "#f0fdf4", color: "#16a34a" },
+    ignored: { label: "Ignored", bg: "#f0f0f0", color: "#8e8e8e" },
   };
   const s = map[status];
   return (
@@ -64,9 +64,9 @@ function StatusBadgeInsight({ status }: { status: Insight["status"] }) {
 
 function PriorityBadge({ priority }: { priority: BusinessSuggestion["priority"] }) {
   const map = {
-    high:   { label: "Haute",   bg: "#fef2f2", color: "#dc2626" },
-    medium: { label: "Moyenne", bg: "#fff7ed", color: "#ea580c" },
-    low:    { label: "Basse",   bg: "#f0f0f0", color: "#8e8e8e" },
+    high: { label: "High", bg: "#fef2f2", color: "#dc2626" },
+    medium: { label: "Medium", bg: "#fff7ed", color: "#ea580c" },
+    low: { label: "Low", bg: "#f0f0f0", color: "#8e8e8e" },
   };
   const s = map[priority];
   return (
@@ -83,7 +83,7 @@ function SectionToggle({ allSelected, onToggle }: { allSelected: boolean; onTogg
       fontSize: 11, color: "#8e8e8e", background: "transparent", border: "none",
       cursor: "pointer", padding: 0, fontWeight: 500, textDecoration: "underline", flexShrink: 0,
     }}>
-      {allSelected ? "Tout désélectionner" : "Tout sélectionner"}
+      {allSelected ? "Deselect all" : "Select all"}
     </button>
   );
 }
@@ -149,10 +149,10 @@ function PreviewLoadingState({ countLabel, mode = "initial" }: { countLabel: str
         </div>
         <div style={{ minWidth: 0 }}>
           <p style={{ fontSize: 13, fontWeight: 800, color: "#0a0a0a", margin: "0 0 2px" }}>
-            {mode === "refresh" ? "Mise à jour de la prévisualisation" : "Prévisualisation en cours"}
+            {mode === "refresh" ? "Updating preview" : "Preview in progress"}
           </p>
           <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>
-            Claude reconstruit le prompt avec {countLabel || "la sélection actuelle"}. Ça peut prendre quelques secondes.
+            Claude is rebuilding the prompt with {countLabel || "the current selection"}. This can take a few seconds.
           </p>
         </div>
       </div>
@@ -202,7 +202,7 @@ function InsightCard({
 }) {
   const isPending = insight.status === "pending";
 
-  // ── Sélections ──────────────────────────────────────────────────────────────
+  // ── Selections ──────────────────────────────────────────────────────────────
   const allSuggestionTexts = useMemo(
     () => (insight.business_suggestions || []).map((s) => s.suggestion),
     [insight.business_suggestions]
@@ -220,7 +220,7 @@ function InsightCard({
   const [selPain, setSelPain] = useState<string[]>([]);                    // all unchecked
   const [selObj,  setSelObj]  = useState<string[]>([]);                    // all unchecked
 
-  // ── Prévisualisation ─────────────────────────────────────────────────────────
+  // ── Preview ─────────────────────────────────────────────────────────────────
   const [showOrigDiff, setShowOrigDiff] = useState(false);
   const [previewResult, setPreviewResult] = useState<PreviewResult | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
@@ -240,7 +240,7 @@ function InsightCard({
   function buildCountLabel(): string {
     const parts: string[] = [];
     if (selSugg.length) parts.push(`${selSugg.length} suggestion${selSugg.length > 1 ? "s" : ""}`);
-    if (selPain.length) parts.push(`${selPain.length} douleur${selPain.length > 1 ? "s" : ""}`);
+    if (selPain.length) parts.push(`${selPain.length} pain point${selPain.length > 1 ? "s" : ""}`);
     if (selObj.length) parts.push(`${selObj.length} objection${selObj.length > 1 ? "s" : ""}`);
     return parts.join(" · ");
   }
@@ -270,7 +270,7 @@ function InsightCard({
       setPreviewSelectionKey(requestedSelectionKey);
     } catch (e: unknown) {
       if (previewRequestId.current !== requestId) return;
-      setPreviewError(e instanceof Error ? e.message : "Erreur lors de la prévisualisation");
+      setPreviewError(e instanceof Error ? e.message : "Preview error");
     } finally {
       if (previewRequestId.current === requestId) setIsLoadingPreview(false);
     }
@@ -304,7 +304,7 @@ function InsightCard({
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <StatusBadgeInsight status={insight.status} />
             <span style={{ fontSize: 12, color: "#8e8e8e" }}>
-              {insight.conversations_analyzed} conversation{insight.conversations_analyzed > 1 ? "s" : ""} analysée{insight.conversations_analyzed > 1 ? "s" : ""}
+              {insight.conversations_analyzed} conversation{insight.conversations_analyzed > 1 ? "s" : ""} analyzed
             </span>
           </div>
         </div>
@@ -315,7 +315,7 @@ function InsightCard({
         <>
           <div style={sep} />
           <div style={sectionHeader}>
-            <p style={sectionTitle}>Douleurs détectées</p>
+            <p style={sectionTitle}>Detected pain points</p>
             {isPending && (
               <SectionToggle
                 allSelected={allPainPointTexts.length > 0 && allPainPointTexts.every((t) => selPain.includes(t))}
@@ -323,7 +323,7 @@ function InsightCard({
               />
             )}
           </div>
-          {isPending && <span style={hint}>Cocher pour adapter les questions de qualification</span>}
+          {isPending && <span style={hint}>Check to adapt the qualification questions</span>}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {insight.pain_points.map((p, i) => (
               <label key={i} style={{ display: "flex", alignItems: "center", gap: 8, cursor: isPending ? "pointer" : "default" }}>
@@ -356,7 +356,7 @@ function InsightCard({
               />
             )}
           </div>
-          {isPending && <span style={hint}>Cocher pour renforcer le traitement dans le prompt</span>}
+          {isPending && <span style={hint}>Check to strengthen the objection handling in the prompt</span>}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {insight.objections.map((o, i) => (
               <label key={i} style={{ display: "flex", alignItems: "center", gap: 8, cursor: isPending ? "pointer" : "default" }}>
@@ -381,7 +381,7 @@ function InsightCard({
         <>
           <div style={sep} />
           <div style={sectionHeader}>
-            <p style={sectionTitle}>Suggestions business</p>
+            <p style={sectionTitle}>Business suggestions</p>
             {isPending && (
               <SectionToggle
                 allSelected={allSuggestionTexts.length > 0 && allSuggestionTexts.every((t) => selSugg.includes(t))}
@@ -407,17 +407,17 @@ function InsightCard({
         </>
       )}
 
-      {/* ── Diff original du rapport (lecture seule) ── */}
+      {/* ── Original report diff (read-only) ── */}
       {insight.prompt_diff?.length > 0 && (
         <>
           <div style={sep} />
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showOrigDiff ? 12 : 0 }}>
-            <p style={sectionTitle}>Proposition meta-prompt</p>
+            <p style={sectionTitle}>Meta-prompt proposal</p>
             <button type="button" onClick={() => setShowOrigDiff((v) => !v)} style={{
               display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600,
               color: "#0095F6", background: "transparent", border: "none", cursor: "pointer", padding: 0,
             }}>
-              {showOrigDiff ? <><ChevronUp size={14} /> Masquer</> : <><ChevronDown size={14} /> Voir le diff</>}
+              {showOrigDiff ? <><ChevronUp size={14} /> Hide</> : <><ChevronDown size={14} /> View diff</>}
             </button>
           </div>
 
@@ -447,10 +447,10 @@ function InsightCard({
         </>
       )}
 
-      {/* ── Zone d'action (pending uniquement) ── */}
+      {/* ── Action area (pending only) ── */}
       {isPending && (
         <>
-          {/* Étape 1 : bouton Prévisualiser */}
+          {/* Step 1: Preview button */}
           {!previewResult && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {previewError && (
@@ -476,8 +476,8 @@ function InsightCard({
                   }}
                 >
                   {isLoadingPreview
-                    ? <><Loader2 size={13} className="animate-spin" />Génération du diff...</>
-                    : <>Prévisualiser{totalSelected > 0 ? ` (${buildCountLabel()})` : ""}</>
+                    ? <><Loader2 size={13} className="animate-spin" />Generating diff...</>
+                    : <>Preview{totalSelected > 0 ? ` (${buildCountLabel()})` : ""}</>
                   }
                 </button>
                 <button
@@ -490,20 +490,20 @@ function InsightCard({
                     cursor: actionLoading === insight.id ? "not-allowed" : "pointer",
                   }}
                 >
-                  Ignorer
+                  Ignore
                 </button>
               </div>
             </div>
           )}
 
-          {/* Étape 2 : diff de prévisualisation + appliquer */}
+          {/* Step 2: preview diff + apply */}
           {previewResult && (
             <div>
               {isLoadingPreview && (
                 <PreviewLoadingState countLabel={buildCountLabel()} mode="refresh" />
               )}
               <p style={{ fontSize: 13, fontWeight: 700, color: "#0a0a0a", margin: "0 0 10px" }}>
-                Changements qui seront appliqués au prompt
+                Changes that will be applied to the prompt
               </p>
               <PreviewDiffViewer lines={previewResult.diff} />
               <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -521,7 +521,7 @@ function InsightCard({
                   }}
                 >
                   {actionLoading === insight.id && <Loader2 size={13} className="animate-spin" />}
-                  Appliquer ce prompt
+                  Apply this prompt
                 </button>
                 <button
                   type="button"
@@ -533,7 +533,7 @@ function InsightCard({
                     cursor: "pointer",
                   }}
                 >
-                  <ArrowLeft size={13} /> Modifier la sélection
+                  <ArrowLeft size={13} /> Edit selection
                 </button>
                 <button
                   type="button"
@@ -545,7 +545,7 @@ function InsightCard({
                     cursor: actionLoading === insight.id ? "not-allowed" : "pointer",
                   }}
                 >
-                  Ignorer
+                  Ignore
                 </button>
                 {toast && (
                   <span style={{ fontSize: 12, color: "#16a34a", display: "flex", alignItems: "center" }}>
@@ -603,7 +603,7 @@ export default function InsightsPage() {
       const data = await apiFetch<Insight[]>("/insights");
       setInsights(data);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Erreur inconnue");
+      setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setLoading(false);
     }
@@ -617,7 +617,7 @@ export default function InsightsPage() {
       await apiFetch("/feedback-loop", { method: "POST", body: JSON.stringify({}) });
       await fetchInsights();
     } catch {
-      setError("L'analyse a échoué");
+      setError("Analysis failed");
     } finally {
       setAnalysing(false);
     }
@@ -636,9 +636,9 @@ export default function InsightsPage() {
         body: JSON.stringify({ insight_id: id, prompt_proposed: promptProposed }),
       });
       await fetchInsights();
-      showToast("Prompt appliqué !");
+      showToast("Prompt applied!");
     } catch {
-      showToast("Erreur lors de l'application");
+      showToast("Error while applying");
     } finally {
       setActionLoading(null);
     }
@@ -649,7 +649,7 @@ export default function InsightsPage() {
     try {
       await apiFetch(`/insights/${id}/ignore`, { method: "PATCH" });
       await fetchInsights();
-      showToast("Rapport ignoré");
+      showToast("Report ignored");
     } finally {
       setActionLoading(null);
     }
@@ -665,7 +665,7 @@ export default function InsightsPage() {
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 20 }}>
             <div>
               <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 4px" }}>Insights</h1>
-              <p style={{ fontSize: 13, color: "#8e8e8e", margin: 0 }}>Analyses automatiques des conversations pour améliorer l'agent</p>
+              <p style={{ fontSize: 13, color: "#8e8e8e", margin: 0 }}>Automatic conversation analysis to improve the agent</p>
             </div>
             <button
               type="button"
@@ -681,8 +681,8 @@ export default function InsightsPage() {
               }}
             >
               {analysing
-                ? <><Loader2 size={14} className="animate-spin" />Analyse en cours...</>
-                : <><Zap size={14} />Lancer une analyse</>
+                ? <><Loader2 size={14} className="animate-spin" />Analysis in progress...</>
+                : <><Zap size={14} />Run analysis</>
               }
             </button>
           </div>
@@ -702,8 +702,8 @@ export default function InsightsPage() {
               textAlign: "center", color: "#8e8e8e", fontSize: 13,
             }}>
               <span style={{ fontSize: 36, display: "block", marginBottom: 12 }}>🔍</span>
-              Aucune analyse pour l'instant.<br />
-              Lance une analyse pour obtenir des insights sur tes conversations.
+              No analysis yet.<br />
+              Run an analysis to get insights from your conversations.
             </div>
           ) : (
             insights.map((insight) => (

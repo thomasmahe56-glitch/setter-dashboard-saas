@@ -85,11 +85,12 @@ type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 type AutosaveState = Record<AutosaveKey, { status: AutosaveStatus; savedAt: number | null }>;
 
 const PROMPT_REFINEMENT_CHIPS = [
-  "Too many emojis",
   "Too long",
-  "Not direct enough",
-  "Wrong question asked",
   "Too salesy",
+  "Wrong language",
+  "Wrong next step",
+  "Wrong question asked",
+  "Bad question",
 ];
 
 const STEPS: {
@@ -101,32 +102,32 @@ const STEPS: {
   {
     id: "business",
     eyebrow: "01",
-    title: "Business",
-    description: "Offre, promesse, prix et limites.",
+    title: "Your offer",
+    description: "What you sell and when to move forward.",
   },
   {
     id: "avatar-input",
     eyebrow: "02",
-    title: "Ideal client",
-    description: "Raw persona inputs.",
+    title: "Ideal customer",
+    description: "Who Angellos should qualify.",
   },
   {
     id: "avatar-review",
     eyebrow: "03",
-    title: "Avatar",
-    description: "Human review of the generated avatar.",
+    title: "Customer notes",
+    description: "Review what Angellos understood.",
   },
   {
     id: "rules",
     eyebrow: "04",
-    title: "DM Rules",
-    description: "Qualification, signals, and objections.",
+    title: "Conversation rules",
+    description: "How Angellos should reply.",
   },
   {
     id: "launch",
     eyebrow: "05",
-    title: "Activation",
-    description: "Compile the Angellos prompt.",
+    title: "Test and launch",
+    description: "Try it and improve replies.",
   },
 ];
 
@@ -174,14 +175,14 @@ const AVATAR_LABELS: Record<keyof AvatarGenerateInput, { label: string; hint: st
 };
 
 const AVATAR_ARRAY_FIELDS: { key: keyof AgentAvatar; label: string; empty: string }[] = [
-  { key: "pain_points", label: "Pain points", empty: "No structured pain points yet." },
-  { key: "fears", label: "Fears", empty: "No structured fears yet." },
-  { key: "frustrations", label: "Frustrations", empty: "No structured frustrations yet." },
-  { key: "objections", label: "Objections", empty: "No structured objections yet." },
-  { key: "buying_triggers", label: "Buying triggers", empty: "No structured buying triggers yet." },
-  { key: "dream_outcomes", label: "Dream outcomes", empty: "No structured dream outcomes yet." },
+  { key: "pain_points", label: "Pain points", empty: "No pain points yet." },
+  { key: "fears", label: "Fears", empty: "No fears yet." },
+  { key: "frustrations", label: "Frustrations", empty: "No frustrations yet." },
+  { key: "objections", label: "Objections", empty: "No objections yet." },
+  { key: "buying_triggers", label: "Buying triggers", empty: "No buying triggers yet." },
+  { key: "dream_outcomes", label: "Dream outcomes", empty: "No dream outcomes yet." },
   { key: "exact_words", label: "Exact words", empty: "No exact words yet." },
-  { key: "bad_fit", label: "Bad fit", empty: "No structured bad fits yet." },
+  { key: "bad_fit", label: "Bad fit", empty: "No bad fits yet." },
 ];
 
 const RULE_FIELDS: { key: keyof AgentSalesRules; label: string; empty: string }[] = [
@@ -222,6 +223,7 @@ export default function TrainingCenterPage() {
   const [versionsLoading, setVersionsLoading] = useState(true);
   const [restoreLoading, setRestoreLoading] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAllRules, setShowAllRules] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const [autosave, setAutosave] = useState<AutosaveState>({
     profile: { status: "idle", savedAt: null },
@@ -477,7 +479,7 @@ export default function TrainingCenterPage() {
     setNotice(null);
     try {
       await api.saveTrainingProfile(profile);
-      setNotice({ kind: "success", text: "Business Setup saved" });
+      setNotice({ kind: "success", text: "Offer saved." });
       setActiveStep("avatar-input");
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Unable to save" });
@@ -496,7 +498,7 @@ export default function TrainingCenterPage() {
     try {
       const data = await api.generateAvatar(avatarInput);
       setAvatarJson(prettyJson(data.avatar));
-      setNotice({ kind: "success", text: "Avatar generated, ready to review" });
+      setNotice({ kind: "success", text: "Customer notes are ready to review." });
       setActiveStep("avatar-review");
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Unable to generate" });
@@ -515,7 +517,7 @@ export default function TrainingCenterPage() {
         return;
       }
       await api.saveAvatar(avatarInput, parsed.value);
-      setNotice({ kind: "success", text: "Client Avatar saved" });
+      setNotice({ kind: "success", text: "Customer notes saved." });
       setActiveStep("rules");
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Invalid avatar" });
@@ -539,7 +541,7 @@ export default function TrainingCenterPage() {
       }
       const data = await api.generateSalesRules(parsed.value, profile);
       setRulesJson(prettyJson(data.rules));
-      setNotice({ kind: "success", text: "DM rules generated" });
+      setNotice({ kind: "success", text: "Conversation rules suggested." });
       setActiveStep("rules");
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Unable to generate rules" });
@@ -559,7 +561,7 @@ export default function TrainingCenterPage() {
       }
       await api.saveSalesRules(parsed.value);
       await refreshTrainingCenterState();
-      setNotice({ kind: "success", text: "DM rules saved" });
+      setNotice({ kind: "success", text: "Conversation rules saved." });
       setActiveStep("launch");
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Invalid rules" });
@@ -570,7 +572,7 @@ export default function TrainingCenterPage() {
 
   async function handleRebuildPrompt() {
     if (!canRebuildPrompt) {
-      setNotice({ kind: "error", text: "Complete the business profile, review the avatar, and save DM rules before rebuilding the prompt." });
+      setNotice({ kind: "error", text: "Complete the offer, ideal customer, and conversation rules before updating Angellos." });
       return;
     }
     setRebuilding(true);
@@ -578,7 +580,7 @@ export default function TrainingCenterPage() {
     try {
       await api.rebuildAgentPrompt();
       await refreshTrainingCenterState();
-      setNotice({ kind: "success", text: "Angellos prompt rebuilt and activated" });
+      setNotice({ kind: "success", text: "Updated. Test the new behavior below." });
       await loadPromptVersions();
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Unable to rebuild" });
@@ -620,7 +622,7 @@ export default function TrainingCenterPage() {
   async function handlePreviewPromptRefinement() {
     const instruction = refineInstruction.trim();
     if (!instruction) {
-      setRefineError("Add an instruction before applying.");
+      setRefineError("Tell Angellos what to improve first.");
       return;
     }
     setRefineLoading(true);
@@ -629,10 +631,10 @@ export default function TrainingCenterPage() {
     try {
       const preview = await api.refinePrompt(instruction, false);
       setRefinePreview(preview);
-      setNotice({ kind: "success", text: "Diff ready to review" });
+      setNotice({ kind: "success", text: "Ready to update Angellos." });
     } catch (error) {
       setRefinePreview(null);
-      setRefineError(error instanceof Error ? error.message : "Unable to refine");
+      setRefineError(error instanceof Error ? error.message : "Couldn’t update Angellos. Try again or check the console.");
     } finally {
       setRefineLoading(false);
     }
@@ -655,9 +657,9 @@ export default function TrainingCenterPage() {
       setRefinePreview(null);
       setRefineInstruction("");
       await loadPromptVersions();
-      setNotice({ kind: "success", text: "Prompt refined, activated, and test conversation reset" });
+      setNotice({ kind: "success", text: "Updated. Test the new behavior below." });
     } catch (error) {
-      setRefineError(error instanceof Error ? error.message : "Unable to validate");
+      setRefineError(error instanceof Error ? error.message : "Couldn’t update Angellos. Try again or check the console.");
     } finally {
       setRefineApplying(false);
     }
@@ -669,7 +671,7 @@ export default function TrainingCenterPage() {
     try {
       await api.restorePromptVersion(versionId);
       await loadPromptVersions();
-      setNotice({ kind: "success", text: "Prompt version restored" });
+      setNotice({ kind: "success", text: "Version restored." });
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Unable to restore" });
     } finally {
@@ -685,13 +687,13 @@ export default function TrainingCenterPage() {
           <div>
             <div style={styles.titleRow}>
               <GraduationCap size={24} color="#0095F6" />
-              <h1 style={styles.title}>Training Center</h1>
+              <h1 style={styles.title}>Teach Angellos</h1>
             </div>
             <p style={styles.subtitle}>
-              In 10 minutes, Angellos understands your offer, ideal client, and sales style. The more you train it, the more precise, human, and close to your voice its replies become.
+              Show Angellos how to qualify prospects, reply in your tone, and move the right people to the next step.
             </p>
             <p style={styles.microCopy}>
-              Answer simply in your own words. Angellos then structures your avatar and DM rules.
+              Answer simply in your own words. Correct Angellos like you would correct a teammate.
             </p>
           </div>
           <button
@@ -803,6 +805,8 @@ export default function TrainingCenterPage() {
                 onRulesChange={updateRulesField}
                 onJsonChange={setRulesJson}
                 onToggleAdvanced={() => setShowAdvanced((value) => !value)}
+                showAllRules={showAllRules}
+                onToggleAllRules={() => setShowAllRules((value) => !value)}
                 onGenerate={handleGenerateRules}
                 onSave={handleSaveRules}
               />
@@ -844,7 +848,7 @@ export default function TrainingCenterPage() {
                   setRefineError(null);
                 }}
                 onRefineChip={(value) => {
-                  setRefineInstruction(value);
+                  setRefineInstruction((current) => current.trim() ? `${current.trim()}\n${value}` : value);
                   setRefineError(null);
                 }}
                 onPreviewRefinement={handlePreviewPromptRefinement}
@@ -915,15 +919,15 @@ function BusinessStep({
   return (
     <div>
       <SectionHeader
-        eyebrow="Business Setup"
-        title="Set the foundations Angellos must respect"
-        description="Start with the elements that truly change DM replies. Advanced details stay available, but we avoid asking for everything at once."
+        eyebrow="Your offer"
+        title="Teach Angellos what you sell"
+        description="Give Angellos the basics it needs to understand your offer and the next step you want prospects to take."
         action={
           <div style={styles.headerActions}>
             <AutosaveIndicator status={autosaveStatus} />
             <button type="button" onClick={onSave} disabled={disabled} style={primaryButton(disabled)}>
               {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-              Save
+              Save offer
             </button>
           </div>
         }
@@ -995,15 +999,15 @@ function AvatarInputStep({
   return (
     <div>
       <SectionHeader
-        eyebrow="Quick Avatar"
-        title="Describe your client in your own words"
-        description="The goal is not perfection. Angellos will structure these answers, then you will review the final version in the next step."
+        eyebrow="Ideal customer"
+        title="Describe who Angellos should qualify"
+        description="Write naturally. Angellos will turn your answers into simple customer notes you can review."
         action={
           <div style={styles.headerActions}>
             <AutosaveIndicator status={autosaveStatus} />
             <button type="button" onClick={onGenerate} disabled={disabled} style={primaryButton(disabled)}>
               {generating ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-              Generate avatar
+              Create customer notes
             </button>
           </div>
         }
@@ -1060,15 +1064,15 @@ function AvatarReviewStep({
   return (
     <div>
       <SectionHeader
-        eyebrow="Avatar review"
+        eyebrow="Customer notes"
         title="Review what Angellos understood"
-        description="Correct the important wording. This structured version will become the source of truth."
+        description="Correct the important wording before Angellos uses it in test conversations."
         action={
           <div style={styles.headerActions}>
             <AutosaveIndicator status={autosaveStatus} />
             <button type="button" onClick={onSave} disabled={disabled} style={primaryButton(disabled)}>
               {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-              Review avatar
+              Save notes
             </button>
           </div>
         }
@@ -1117,14 +1121,14 @@ function AvatarReviewStep({
       <div style={styles.actionRow}>
         <button type="button" onClick={onGenerateRules} disabled={disabled || !canGenerateRules} style={secondaryButton(disabled || !canGenerateRules)}>
           {generatingRules ? <Loader2 size={15} className="animate-spin" /> : <MessageSquareText size={15} />}
-          Generate DM rules
+          Suggest conversation rules
         </button>
         <AdvancedToggle open={showAdvanced} onClick={onToggleAdvanced} />
       </div>
       {generateRulesHelp && <p style={styles.actionHelp}>{generateRulesHelp}</p>}
 
       {showAdvanced && (
-        <JsonEditor title="JSON avatar" value={avatarJson} onChange={onJsonChange} rows={12} />
+        <JsonEditor title="Advanced customer data" value={avatarJson} onChange={onJsonChange} rows={12} />
       )}
     </div>
   );
@@ -1134,6 +1138,7 @@ function RulesStep({
   rules,
   rulesJson,
   showAdvanced,
+  showAllRules,
   disabled,
   saving,
   autosaveStatus,
@@ -1143,12 +1148,14 @@ function RulesStep({
   onRulesChange,
   onJsonChange,
   onToggleAdvanced,
+  onToggleAllRules,
   onGenerate,
   onSave,
 }: {
   rules: AgentSalesRules;
   rulesJson: string;
   showAdvanced: boolean;
+  showAllRules: boolean;
   disabled: boolean;
   saving: boolean;
   autosaveStatus: AutosaveStatus;
@@ -1158,21 +1165,24 @@ function RulesStep({
   onRulesChange: (key: keyof AgentSalesRules, value: string[]) => void;
   onJsonChange: (value: string) => void;
   onToggleAdvanced: () => void;
+  onToggleAllRules: () => void;
   onGenerate: () => void;
   onSave: () => void;
 }) {
+  const simpleRules = buildSimpleRules(rules);
+
   return (
     <div>
       <SectionHeader
-        eyebrow="DM Rules"
-        title="Decide how Angellos qualifies and guides"
-        description="These lists become the operational guardrails: when to continue, when to stop, and when to offer a call."
+        eyebrow="Conversation rules"
+        title="How Angellos should reply"
+        description="Keep the most important rules visible. You can open the full list when you need more control."
         action={
           <div style={styles.headerActions}>
             <AutosaveIndicator status={autosaveStatus} />
             <button type="button" onClick={onSave} disabled={disabled} style={primaryButton(disabled)}>
               {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-              Save rules
+              Save
             </button>
           </div>
         }
@@ -1181,30 +1191,60 @@ function RulesStep({
       <div style={styles.actionRow}>
         <button type="button" onClick={onGenerate} disabled={disabled || !canGenerate} style={secondaryButton(disabled || !canGenerate)}>
           {generating ? <Loader2 size={15} className="animate-spin" /> : <Wand2 size={15} />}
-          Regenerate from avatar
+          Suggest rules
         </button>
-        <AdvancedToggle open={showAdvanced} onClick={onToggleAdvanced} />
+        <button type="button" onClick={onToggleAllRules} style={ghostButton(false)}>
+          {showAllRules ? "Hide all rules" : "View all rules"}
+        </button>
       </div>
       {generateHelp && <p style={styles.actionHelp}>{generateHelp}</p>}
 
       {!isRulesMeaningful(rules) && (
-        <EmptyState text="Review the avatar, then generate DM rules." />
+        <EmptyState text="Review the customer notes, then suggest conversation rules." />
       )}
 
-      <div style={styles.editableListGrid}>
-        {RULE_FIELDS.map((field) => (
-          <EditableList
-            key={field.key}
-            label={field.label}
-            empty={field.empty}
-            items={getStringList(rules[field.key])}
-            onChange={(items) => onRulesChange(field.key, items)}
-          />
+      <div style={styles.simpleRulesList}>
+        {simpleRules.map((rule) => (
+          <div key={`${rule.key}-${rule.index}`} style={styles.simpleRuleRow}>
+            <span style={styles.simpleRuleText}>{rule.text}</span>
+            <div style={styles.simpleRuleActions}>
+              <button type="button" disabled={disabled} onClick={() => onToggleAllRules()} style={styles.textButton}>Edit</button>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  const current = getStringList(rules[rule.key]);
+                  onRulesChange(rule.key, current.filter((_, index) => index !== rule.index));
+                }}
+                style={styles.textButton}
+              >
+                Turn off
+              </button>
+            </div>
+          </div>
         ))}
       </div>
 
+      {showAllRules && (
+        <div style={styles.editableListGrid}>
+          {RULE_FIELDS.map((field) => (
+            <EditableList
+              key={field.key}
+              label={plainRuleLabel(field.label)}
+              empty={field.empty.replace("structured ", "")}
+              items={getStringList(rules[field.key])}
+              onChange={(items) => onRulesChange(field.key, items)}
+            />
+          ))}
+        </div>
+      )}
+
+      <div style={styles.actionRow}>
+        <AdvancedToggle open={showAdvanced} onClick={onToggleAdvanced} />
+      </div>
+
       {showAdvanced && (
-        <JsonEditor title="DM rules JSON" value={rulesJson} onChange={onJsonChange} rows={12} />
+        <JsonEditor title="Advanced rules data" value={rulesJson} onChange={onJsonChange} rows={12} />
       )}
     </div>
   );
@@ -1285,33 +1325,41 @@ function LaunchStep({
   const avatarListCount = AVATAR_ARRAY_FIELDS.reduce((total, field) => total + getStringList(avatar[field.key]).length, 0);
   const avatarCount = avatarTextCount + avatarListCount;
   const rulesCount = RULE_FIELDS.reduce((total, field) => total + getStringList(rules[field.key]).length, 0);
+  const businessDetailsCount = [
+    profile.business_name,
+    profile.coach_name,
+    profile.niche,
+    profile.offer_name,
+    profile.offer_promise,
+    profile.offer_format,
+    profile.price,
+  ].filter((value) => value.trim()).length;
 
   return (
     <div>
       <SectionHeader
-        eyebrow="Activation"
-        title="Rebuild Angellos' active prompt"
-        description="The prompt will be compiled from the business profile, reviewed avatar, and DM rules. Structured data remains the source of truth."
+        eyebrow="Test and launch"
+        title="Test Angellos"
+        description="Act like a prospect and see how Angellos replies. If something feels off, correct it like you would correct a teammate."
         action={
           <button type="button" onClick={onRebuild} disabled={disabled || !canRebuild} style={primaryButton(disabled || !canRebuild)}>
             {rebuilding ? <Loader2 size={15} className="animate-spin" /> : <FileJson size={15} />}
-            Rebuild Angellos prompt
+            {rebuilding ? "Updating Angellos..." : "Update Angellos"}
           </button>
         }
       />
-      {rebuildHelp && <p style={styles.actionHelp}>{rebuildHelp}</p>}
+      {rebuildHelp && <p style={styles.actionHelp}>{rebuildHelp.replace("business profile, avatar, and DM rules", "offer, ideal customer, and conversation rules")}</p>}
 
       <div style={styles.launchGrid}>
-        <SummaryMetric label="Business" value={profile.offer_name || profile.business_name || "To complete"} />
-        <SummaryMetric label="Avatar" value={`${avatarCount} structured item${avatarCount > 1 ? "s" : ""}`} />
-        <SummaryMetric label="DM Rules" value={`${rulesCount} structured rule${rulesCount > 1 ? "s" : ""}`} />
+        <SummaryMetric label="Offer" value={profile.offer_name || profile.business_name || "To complete"} meta={`${businessDetailsCount} details saved`} />
+        <SummaryMetric label="Ideal customer" value={avatarCount > 0 ? "Customer context saved" : "To complete"} meta={`${avatarCount} customer insight${avatarCount === 1 ? "" : "s"}`} />
+        <SummaryMetric label="Conversation rules" value={rulesCount > 0 ? "Rules ready" : "To complete"} meta={`${rulesCount} rule${rulesCount === 1 ? "" : "s"}`} />
       </div>
 
       <div style={styles.launchPanel}>
-        <h3 style={styles.cardTitle}>Before testing</h3>
+        <h3 style={styles.cardTitle}>Ready to test</h3>
         <p style={styles.bodyText}>
-          After rebuilding, switch Agent Studio or the CRM to supervised mode and test 2 or 3 typical messages.
-          If a reply sounds off, come back here to correct the avatar or rules instead of editing the prompt by hand.
+          Angellos has enough context to handle test conversations. Try a real prospect message, then improve anything that feels off.
         </p>
       </div>
 
@@ -1328,6 +1376,9 @@ function LaunchStep({
           onSend={onSendTestMessage}
           onKeyDown={onChatKeyDown}
           onReset={onResetChat}
+          onNeedsImprovement={(reply) => {
+            onRefineInstructionChange(`This reply needs improvement:\n"${reply}"\n\nChange Angellos so it replies better next time.`);
+          }}
         />
         <PromptRefinementPanel
           instruction={refineInstruction}
@@ -1365,6 +1416,7 @@ function TestConversation({
   onSend,
   onKeyDown,
   onReset,
+  onNeedsImprovement,
 }: {
   messages: ChatMessage[];
   input: string;
@@ -1377,13 +1429,14 @@ function TestConversation({
   onSend: () => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   onReset: () => void;
+  onNeedsImprovement: (reply: string) => void;
 }) {
   return (
     <section style={styles.toolCard}>
       <div style={styles.toolHeader}>
         <div>
           <h3 style={styles.cardTitle}>Test conversation</h3>
-          <p style={styles.toolText}>Test the active prompt as if you were a prospect.</p>
+          <p style={styles.toolText}>Act like a prospect and see how Angellos replies.</p>
         </div>
         <button type="button" onClick={onReset} style={ghostButton(false)} title="Reset">
           <RotateCcw size={14} />
@@ -1394,7 +1447,7 @@ function TestConversation({
       <div style={styles.chatBox}>
         {messages.length === 0 ? (
           <div style={styles.chatEmpty}>
-            <strong>Test Angellos with a real prospect message.</strong>
+            <strong>Act like a prospect and see how Angellos replies.</strong>
             {[
               "Hi, I'm interested but I'm not sure if this is right for me.",
               "How much does it cost?",
@@ -1410,8 +1463,16 @@ function TestConversation({
             const isAgent = message.role === "assistant";
             return (
               <div key={`${message.role}-${index}`} style={{ display: "flex", justifyContent: isAgent ? "flex-start" : "flex-end" }}>
-                <div style={isAgent ? styles.agentBubble : styles.userBubble}>
-                  {message.content}
+                <div style={styles.messageCluster}>
+                  <div style={isAgent ? styles.agentBubble : styles.userBubble}>
+                    {message.content}
+                  </div>
+                  {isAgent && (
+                    <div style={styles.replyFeedbackRow}>
+                      <button type="button" style={styles.textButton}>Good reply</button>
+                      <button type="button" onClick={() => onNeedsImprovement(message.content)} style={styles.textButton}>Needs improvement</button>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -1479,8 +1540,8 @@ function PromptRefinementPanel({
     <section style={styles.refinePanel}>
       <div style={styles.toolHeader}>
         <div>
-          <h3 style={styles.cardTitle}>Refine Angellos</h3>
-          <p style={styles.toolText}>Turn a test note into a targeted prompt change.</p>
+          <h3 style={styles.cardTitle}>Improve Angellos</h3>
+          <p style={styles.toolText}>Tell Angellos what it got wrong. It will update the rules automatically.</p>
         </div>
       </div>
 
@@ -1489,7 +1550,7 @@ function PromptRefinementPanel({
         rows={5}
         disabled={disabled || busy}
         onChange={(event) => onInstructionChange(event.target.value)}
-        placeholder={"Tell me what is wrong with this reply\nor what you want to change..."}
+        placeholder="Example: Don’t suggest a call yet. First send the beta application page."
         style={styles.refineInput}
       />
 
@@ -1512,7 +1573,7 @@ function PromptRefinementPanel({
       <div style={styles.actionRow}>
         <button type="button" onClick={onPreview} disabled={!canPreview} style={primaryButton(!canPreview)}>
           {loading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-          Apply
+          {loading ? "Updating Angellos..." : "Update Angellos"}
         </button>
         {previewReady && (
           <button type="button" onClick={onCancel} disabled={busy} style={ghostButton(busy)}>
@@ -1525,15 +1586,15 @@ function PromptRefinementPanel({
         <div style={styles.diffBox}>
           <div style={styles.diffHeader}>
             <div>
-              <span style={styles.diffEyebrow}>Target section</span>
-              <strong style={styles.diffTitle}>{preview.target_section || "Prompt"}</strong>
+              <span style={styles.diffEyebrow}>What will change</span>
+              <strong style={styles.diffTitle}>{preview.target_section || "Angellos behavior"}</strong>
             </div>
             <span style={styles.diffCount}>{preview.diff.filter((line) => line.type !== "keep").length} line{preview.diff.filter((line) => line.type !== "keep").length > 1 ? "s" : ""}</span>
           </div>
           {preview.summary && <p style={styles.diffSummary}>{preview.summary}</p>}
           <div style={styles.diffList}>
             {preview.diff.length === 0 ? (
-              <p style={styles.emptyText}>Claude did not return a detailed diff.</p>
+              <p style={styles.emptyText}>No detailed changes returned.</p>
             ) : (
               preview.diff.slice(0, 80).map((line, index) => (
                 <div key={`${line.type}-${index}`} style={diffLineStyle(line.type)}>
@@ -1547,7 +1608,7 @@ function PromptRefinementPanel({
           </div>
           <button type="button" onClick={onApply} disabled={disabled || busy} style={primaryButton(disabled || busy)}>
             {applying ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-            Review and activate
+            {applying ? "Updating Angellos..." : "Update Angellos"}
           </button>
         </div>
       )}
@@ -1570,8 +1631,8 @@ function PromptHistory({
     <section style={styles.toolCard}>
       <div style={styles.toolHeader}>
         <div>
-          <h3 style={styles.cardTitle}>Prompt history</h3>
-          <p style={styles.toolText}>Return to a previous version if the rebuild does not feel right.</p>
+          <h3 style={styles.cardTitle}>Version history</h3>
+          <p style={styles.toolText}>Rollback if a recent change made Angellos worse.</p>
         </div>
       </div>
 
@@ -1579,7 +1640,7 @@ function PromptHistory({
         {loading ? (
           <div style={styles.emptyText}>Loading versions...</div>
         ) : versions.length === 0 ? (
-          <div style={styles.emptyText}>No version available.</div>
+          <div style={styles.emptyText}>No updates yet.</div>
         ) : (
           versions.slice(0, 8).map((version) => {
             const active = version.is_active;
@@ -1591,7 +1652,7 @@ function PromptHistory({
                     <span style={styles.versionName}>{formatPromptVersionTitle(version)}</span>
                     {active && <span style={styles.activePill}>Active</span>}
                   </div>
-                  <div style={styles.versionMeta}>{formatDate(version.created_at)}</div>
+                  <div style={styles.versionMeta}>{formatRelativeDate(version.created_at)}</div>
                 </div>
                 <button
                   type="button"
@@ -1600,7 +1661,7 @@ function PromptHistory({
                   style={secondaryButton(active || Boolean(restoreLoading))}
                 >
                   {restoring ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-                  Restore
+                  Rollback
                 </button>
               </div>
             );
@@ -1633,7 +1694,7 @@ function PreviewPanel({
 
   return (
     <div style={styles.previewInner}>
-      <span style={styles.previewEyebrow}>What Angellos understands</span>
+      <span style={styles.previewEyebrow}>What Angellos knows</span>
       <h2 style={styles.previewTitle}>
         {profile.business_name || profile.offer_name || "Your agent does not have context yet"}
       </h2>
@@ -1645,13 +1706,13 @@ function PreviewPanel({
             : "Generate and review the avatar to get a usable summary."}
       </p>
 
-      <PreviewSection title="Offer">
+      <PreviewSection title="Your offer">
         <PreviewLine label="Promise" value={profile.offer_promise} />
         <PreviewLine label="Format" value={profile.offer_format} />
         <PreviewLine label="Price" value={profile.price} />
       </PreviewSection>
 
-      <PreviewSection title="Avatar">
+      <PreviewSection title="Your ideal customer">
         {topAvatarItems.length > 0 ? (
           <MiniList items={topAvatarItems} />
         ) : (
@@ -1659,11 +1720,11 @@ function PreviewPanel({
         )}
       </PreviewSection>
 
-      <PreviewSection title="DM Rules">
+      <PreviewSection title="How Angellos should reply">
         {topRules.length > 0 ? (
           <MiniList items={topRules} />
         ) : (
-          <p style={styles.emptyText}>Qualification rules will appear here.</p>
+          <p style={styles.emptyText}>Conversation rules will appear here.</p>
         )}
       </PreviewSection>
     </div>
@@ -1699,13 +1760,51 @@ function MiniList({ items }: { items: string[] }) {
   );
 }
 
-function SummaryMetric({ label, value }: { label: string; value: string }) {
+function SummaryMetric({ label, value, meta }: { label: string; value: string; meta?: string }) {
   return (
     <div style={styles.metric}>
       <span style={styles.metricLabel}>{label}</span>
       <strong style={styles.metricValue}>{value}</strong>
+      {meta && <span style={styles.metricMeta}>{meta}</span>}
     </div>
   );
+}
+
+function buildSimpleRules(rules: AgentSalesRules): { key: keyof AgentSalesRules; index: number; text: string }[] {
+  const preferred: { key: keyof AgentSalesRules; fallback: string }[] = [
+    { key: "qualification_questions", fallback: "Ask one question at a time" },
+    { key: "call_offer_conditions", fallback: "Send the right next step only when the prospect is ready" },
+    { key: "follow_up_rules", fallback: "Follow up naturally when the conversation goes quiet" },
+    { key: "do_not_say", fallback: "Avoid wording that does not sound like the business" },
+    { key: "escalation_rules", fallback: "Hand off conversations that need a human" },
+  ];
+
+  const fromRules = preferred.flatMap(({ key }) =>
+    getStringList(rules[key]).slice(0, 1).map((text, index) => ({ key, index, text }))
+  );
+
+  if (fromRules.length >= 5) return fromRules.slice(0, 5);
+
+  const existingText = new Set(fromRules.map((rule) => rule.text));
+  const fallbacks = preferred
+    .filter(({ fallback }) => !existingText.has(fallback))
+    .map(({ key, fallback }) => ({ key, index: -1, text: fallback }));
+  return [...fromRules, ...fallbacks].slice(0, 5);
+}
+
+function plainRuleLabel(label: string): string {
+  const labels: Record<string, string> = {
+    "Qualification questions": "Questions to ask",
+    "Buying signals": "Buying signals",
+    "Conditions to offer a call": "When to suggest a call",
+    "Red flags": "Red flags",
+    "Stop conditions": "When to stop",
+    "Objection responses": "How to handle objections",
+    "Follow-up rules": "Follow-up rules",
+    "Do not say": "Do not say",
+    "Human escalation": "When Thomas should take over",
+  };
+  return labels[label] || label.replace("DM", "Conversation");
 }
 
 function formatDate(value: string): string {
@@ -1716,7 +1815,22 @@ function formatDate(value: string): string {
 
 function formatPromptVersionTitle(version: PromptVersion): string {
   const label = version.refinement_instruction || version.source || "manual";
+  if (label === "manual") return "Manual update";
+  if (label.includes("next step")) return "Changed next step rule";
   return label.length > 58 ? `${label.slice(0, 55)}...` : label;
+}
+
+function formatRelativeDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const seconds = Math.max(1, Math.round((Date.now() - date.getTime()) / 1000));
+  if (seconds < 60) return "Updated just now";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `Updated ${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `Updated ${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `Updated ${days} day${days === 1 ? "" : "s"} ago`;
 }
 
 function stepDone(step: StepId, checklist: ReturnType<typeof buildTrainingChecklist>): boolean {
@@ -2410,6 +2524,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 15,
     lineHeight: 1.25,
   },
+  metricMeta: {
+    color: "#94a3b8",
+    fontSize: 12,
+    lineHeight: 1.25,
+  },
   launchPanel: {
     border: "1px solid #e6ebf2",
     borderRadius: 8,
@@ -2498,6 +2617,26 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
   },
+  messageCluster: {
+    display: "grid",
+    gap: 5,
+    maxWidth: "88%",
+  },
+  replyFeedbackRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    paddingLeft: 4,
+  },
+  textButton: {
+    border: "none",
+    background: "transparent",
+    color: "#2563eb",
+    fontSize: 12,
+    fontWeight: 800,
+    padding: 0,
+    cursor: "pointer",
+  },
   inlineError: {
     margin: "10px 0 0",
     color: "#b91c1c",
@@ -2529,6 +2668,33 @@ const styles: Record<string, React.CSSProperties> = {
     flexWrap: "wrap",
     gap: 8,
     marginTop: 10,
+  },
+  simpleRulesList: {
+    display: "grid",
+    gap: 8,
+    marginTop: 14,
+  },
+  simpleRuleRow: {
+    border: "1px solid #e6ebf2",
+    borderRadius: 8,
+    background: "#fbfdff",
+    padding: "10px 12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  simpleRuleText: {
+    color: "#0f172a",
+    fontSize: 13,
+    lineHeight: 1.4,
+    fontWeight: 750,
+  },
+  simpleRuleActions: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 10,
+    flexShrink: 0,
   },
   diffBox: {
     border: "1px solid #dbeafe",

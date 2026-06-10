@@ -1,10 +1,10 @@
 import type { CSSProperties } from "react";
-import { AngelosLevel, TrainingChecklist } from "@/lib/training-center/utils";
+import { TrainingChecklist } from "@/lib/training-center/utils";
 
 interface TrainingProgressProps {
   progress: number;
   businessScore: number;
-  level: AngelosLevel;
+  level: { label: string; description: string };
   checklist: TrainingChecklist;
 }
 
@@ -17,21 +17,24 @@ export function TrainingProgress({ progress, businessScore, level, checklist }: 
         <div style={styles.progressTrack}>
           <div style={{ ...styles.progressFill, width: `${progress}%` }} />
         </div>
-        <span style={styles.progressHint}>{businessScore}/7 essential business fields</span>
+        <details style={styles.progressDetails}>
+          <summary style={styles.progressHint}>Details saved</summary>
+          <span style={styles.progressDetailText}>{businessScore}/7 offer details saved</span>
+        </details>
         <div style={styles.levelCard}>
-          <span style={styles.levelLabel}>Angellos level</span>
-          <strong style={styles.levelTitle}>{level.label}</strong>
-          <span style={styles.levelText}>{level.description}</span>
+          <span style={styles.levelLabel}>Status</span>
+          <strong style={styles.levelTitle}>Ready to test</strong>
+          <span style={styles.levelText}>Angellos has enough context to handle test conversations.</span>
         </div>
       </div>
 
       <div style={styles.checklistBlock}>
         {[
-          ["Business Setup", checklist.business],
-          ["Client Avatar", checklist.avatar],
-          ["DM Rules", checklist.rules],
-          ["Activation", checklist.activation],
-          ["Test", checklist.test],
+          ["Your offer", checklist.business],
+          ["Ideal customer", checklist.avatar],
+          ["Conversation rules", checklist.rules],
+          ["Test and launch", checklist.activation],
+          ["Test Angellos", checklist.test],
         ].map(([label, status]) => (
           <div key={label} style={styles.checklistRow}>
             <span>{label}</span>
@@ -81,6 +84,17 @@ const styles: Record<string, CSSProperties> = {
     color: "#94a3b8",
     fontSize: 12,
     fontWeight: 650,
+    cursor: "pointer",
+  },
+  progressDetails: {
+    color: "#94a3b8",
+    fontSize: 12,
+  },
+  progressDetailText: {
+    display: "block",
+    marginTop: 4,
+    color: "#64748b",
+    fontSize: 12,
   },
   levelCard: {
     marginTop: 12,

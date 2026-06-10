@@ -17,6 +17,9 @@ export class ApiAuthError extends Error {
 async function readErrorDetail(res: Response): Promise<string> {
   try {
     const data = await res.json();
+    if (typeof data?.user_message === "string") return data.user_message;
+    if (typeof data?.detail?.user_message === "string") return data.detail.user_message;
+    if (typeof data?.error?.user_message === "string") return data.error.user_message;
     return typeof data?.detail === "string" ? data.detail : `API error: ${res.status}`;
   } catch {
     return `API error: ${res.status}`;

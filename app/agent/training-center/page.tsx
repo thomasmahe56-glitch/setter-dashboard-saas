@@ -633,7 +633,6 @@ export default function TrainingCenterPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to run test";
       setChatError(message);
-      setChatMessages((current) => [...current, { role: "assistant", content: message }]);
     } finally {
       setChatLoading(false);
       setTimeout(() => chatInputRef.current?.focus(), 50);
@@ -1717,7 +1716,7 @@ function TestConversation({
                   <div style={isAgent ? styles.agentBubble : styles.userBubble}>
                     {message.content}
                   </div>
-                  {isAgent && (
+                  {isAgent && !error && (
                     <div style={styles.replyFeedbackRow}>
                       <button type="button" style={styles.textButton}>Good reply</button>
                       <button type="button" onClick={() => onNeedsImprovement(message.content)} style={styles.textButton}>Needs improvement</button>

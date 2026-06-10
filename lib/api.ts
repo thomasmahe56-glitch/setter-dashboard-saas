@@ -129,6 +129,10 @@ export interface TrainingProfileInput {
   calendly_url: string;
   sales_page_url: string;
   raw_notes: string;
+  sales_process?: string;
+  next_step?: string;
+  voice_profile?: string;
+  knowledge_sources?: string[];
 }
 
 export interface AvatarGenerateInput {
@@ -168,7 +172,25 @@ export interface AgentSalesRules {
   follow_up_rules?: string[];
   do_not_say?: string[];
   escalation_rules?: string[];
+  faq_answers?: string[];
+  links_or_resources?: string[];
   [key: string]: unknown;
+}
+
+export interface KnowledgeExtractInput {
+  manual_process: string;
+  pasted_text: string;
+  file_name?: string;
+  file_type?: string;
+  file_base64?: string;
+  category?: string;
+}
+
+export interface KnowledgeExtraction {
+  profile_patch: Partial<TrainingProfileInput> & Record<string, unknown>;
+  avatar_patch: AgentAvatar;
+  rules_patch: AgentSalesRules;
+  preview: Record<string, string[]>;
 }
 
 export interface TrainingCenterState {
@@ -301,6 +323,16 @@ export const api = {
     apiFetch<{ success: boolean; sales_rules: unknown }>("/agent/sales-rules", {
       method: "PATCH",
       body: JSON.stringify({ rules }),
+    }),
+  extractKnowledge: (input: KnowledgeExtractInput) =>
+    apiFetch<KnowledgeExtraction>("/agent/knowledge/extract", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  trainKnowledge: (extraction: Pick<KnowledgeExtraction, "profile_patch" | "avatar_patch" | "rules_patch">) =>
+    apiFetch<{ success: boolean; profile: unknown; avatar: unknown; sales_rules: unknown }>("/agent/knowledge/train", {
+      method: "POST",
+      body: JSON.stringify(extraction),
     }),
   rebuildAgentPrompt: () =>
     apiFetch<{ success: boolean; prompt_version_id: string }>("/agent/prompt/rebuild", {

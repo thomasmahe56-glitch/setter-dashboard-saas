@@ -28,6 +28,7 @@ import {
   api,
   AvatarGenerateInput,
   ChatMessage,
+  KnowledgeExtraction,
   PromptRefinementResult,
   PromptVersion,
   TrainingProfileInput,
@@ -78,7 +79,7 @@ const EMPTY_AVATAR_INPUT: AvatarGenerateInput = {
   bad_fit: "",
 };
 
-type StepId = "business" | "avatar-input" | "avatar-review" | "rules" | "launch";
+type StepId = "business" | "knowledge" | "avatar-input" | "avatar-review" | "rules" | "launch";
 type Notice = { kind: "success" | "error"; text: string } | null;
 type AutosaveKey = "profile" | "avatarInput" | "avatar" | "rules";
 type AutosaveStatus = "idle" | "saving" | "saved" | "error";
@@ -106,26 +107,32 @@ const STEPS: {
     description: "What you sell and when to move forward.",
   },
   {
-    id: "avatar-input",
+    id: "knowledge",
     eyebrow: "02",
+    title: "Knowledge & voice",
+    description: "Upload docs or paste transcripts.",
+  },
+  {
+    id: "avatar-input",
+    eyebrow: "03",
     title: "Ideal customer",
     description: "Who Angellos should qualify.",
   },
   {
     id: "avatar-review",
-    eyebrow: "03",
+    eyebrow: "04",
     title: "Customer notes",
     description: "Review what Angellos understood.",
   },
   {
     id: "rules",
-    eyebrow: "04",
+    eyebrow: "05",
     title: "Conversation rules",
     description: "How Angellos should reply.",
   },
   {
     id: "launch",
-    eyebrow: "05",
+    eyebrow: "06",
     title: "Test and launch",
     description: "Try it and improve replies.",
   },
@@ -197,6 +204,19 @@ const RULE_FIELDS: { key: keyof AgentSalesRules; label: string; empty: string }[
   { key: "escalation_rules", label: "Human escalation", empty: "No escalation rules." },
 ];
 
+const KNOWLEDGE_PREVIEW_SECTIONS = [
+  { key: "sales_process_found", title: "Sales process found" },
+  { key: "qualification_questions_found", title: "Qualification questions found" },
+  { key: "good_fit_signals", title: "Good fit signals" },
+  { key: "bad_fit_signals", title: "Bad fit signals" },
+  { key: "next_step", title: "Next step" },
+  { key: "objection_answers", title: "Objection answers" },
+  { key: "faq_answers", title: "FAQ answers" },
+  { key: "voice_profile_found", title: "Voice profile found" },
+  { key: "phrases_to_use", title: "Phrases Angellos can use" },
+  { key: "phrases_to_avoid", title: "Phrases Angellos should avoid" },
+];
+
 export default function TrainingCenterPage() {
   const [activeStep, setActiveStep] = useState<StepId>("business");
   const [profile, setProfile] = useState<TrainingProfileInput>(EMPTY_PROFILE);
@@ -214,6 +234,14 @@ export default function TrainingCenterPage() {
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [knowledgeProcess, setKnowledgeProcess] = useState("");
+  const [knowledgeText, setKnowledgeText] = useState("");
+  const [knowledgeFileName, setKnowledgeFileName] = useState("");
+  const [knowledgeFileBase64, setKnowledgeFileBase64] = useState("");
+  const [knowledgeExtraction, setKnowledgeExtraction] = useState<KnowledgeExtraction | null>(null);
+  const [knowledgeLoading, setKnowledgeLoading] = useState(false);
+  const [knowledgeSaving, setKnowledgeSaving] = useState(false);
+  const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
   const [refineInstruction, setRefineInstruction] = useState("");
   const [refinePreview, setRefinePreview] = useState<PromptRefinementResult | null>(null);
   const [refineLoading, setRefineLoading] = useState(false);
@@ -339,7 +367,7 @@ export default function TrainingCenterPage() {
   const avatarAutosaveSignature = avatarJson;
   const rulesAutosaveSignature = rulesJson;
 
-  const actionDisabled = loading || savingProfile || generatingAvatar || savingAvatar || generatingRules || savingRules || rebuilding || chatLoading || refineLoading || refineApplying || Boolean(restoreLoading);
+  const actionDisabled = loading || savingProfile || generatingAvatar || savingAvatar || generatingRules || savingRules || rebuilding || chatLoading || knowledgeLoading || knowledgeSaving || refineLoading || refineApplying || Boolean(restoreLoading);
   const currentIndex = STEPS.findIndex((step) => step.id === activeStep);
   const canGoBack = currentIndex > 0;
   const canGoNext = currentIndex < STEPS.length - 1;
@@ -612,6 +640,70 @@ export default function TrainingCenterPage() {
     }
   }
 
+  async function handleExtractKnowledge() {
+    if (!knowledgeProcess.trim() && !knowledgeText.trim() && !knowledgeFileBase64) {
+      setKnowledgeError("Write your process or paste document text first.");
+      return;
+    }
+    setKnowledgeLoading(true);
+    setKnowledgeError(null);
+    setNotice(null);
+    try {
+      const extraction = await api.extractKnowledge({
+        manual_process: knowledgeProcess,
+        pasted_text: knowledgeText,
+        file_name: knowledgeFileName,
+        file_type: knowledgeFileName.split(".").pop() || "pasted text",
+        file_base64: knowledgeFileBase64,
+        category: "knowledge_and_voice",
+      });
+      setKnowledgeExtraction(extraction);
+      setNotice({ kind: "success", text: "Angellos learned from your files. Review it before saving." });
+    } catch (error) {
+      setKnowledgeExtraction(null);
+      setKnowledgeError(error instanceof Error ? error.message : "Couldn’t read this knowledge. Try pasting text instead.");
+    } finally {
+      setKnowledgeLoading(false);
+    }
+  }
+
+  async function handleTrainKnowledge() {
+    if (!knowledgeExtraction) {
+      setKnowledgeError("Review what Angellos learned first.");
+      return;
+    }
+    setKnowledgeSaving(true);
+    setKnowledgeError(null);
+    setNotice(null);
+    try {
+      await api.trainKnowledge({
+        profile_patch: knowledgeExtraction.profile_patch,
+        avatar_patch: knowledgeExtraction.avatar_patch,
+        rules_patch: knowledgeExtraction.rules_patch,
+      });
+      await api.rebuildAgentPrompt();
+      await refreshTrainingCenterState();
+      await loadPromptVersions();
+      setNotice({ kind: "success", text: "Angellos learned your process and voice. Test it with a sample conversation." });
+      setActiveStep("launch");
+    } catch (error) {
+      setKnowledgeError(error instanceof Error ? error.message : "Couldn’t train Angellos. Try again.");
+    } finally {
+      setKnowledgeSaving(false);
+    }
+  }
+
+  function handleKnowledgePreviewChange(section: string, items: string[]) {
+    setKnowledgeExtraction((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        preview: { ...current.preview, [section]: items },
+        ...mapKnowledgePreviewToPatch(current, section, items),
+      };
+    });
+  }
+
   function handleChatKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -760,6 +852,26 @@ export default function TrainingCenterPage() {
               />
             )}
 
+            {activeStep === "knowledge" && (
+              <KnowledgeVoiceStep
+                manualProcess={knowledgeProcess}
+                pastedText={knowledgeText}
+                fileName={knowledgeFileName}
+                extraction={knowledgeExtraction}
+                loading={knowledgeLoading}
+                saving={knowledgeSaving}
+                error={knowledgeError}
+                disabled={actionDisabled}
+                onManualProcessChange={setKnowledgeProcess}
+                onPastedTextChange={setKnowledgeText}
+                onFileNameChange={setKnowledgeFileName}
+                onFileBase64Change={setKnowledgeFileBase64}
+                onPreviewChange={handleKnowledgePreviewChange}
+                onExtract={handleExtractKnowledge}
+                onTrain={handleTrainKnowledge}
+              />
+            )}
+
             {activeStep === "avatar-input" && (
               <AvatarInputStep
                 input={avatarInput}
@@ -872,7 +984,7 @@ export default function TrainingCenterPage() {
           </section>
 
           <aside className="training-preview-pane" style={styles.previewPane}>
-            <PreviewPanel profile={profile} avatar={avatar} rules={rules} activeStep={activeStep} />
+            <PreviewPanel profile={profile} avatar={avatar} rules={rules} activeStep={activeStep} onEdit={setActiveStep} />
           </aside>
         </section>
       </div>
@@ -975,6 +1087,144 @@ function BusinessStep({
           <TextField label="Free notes" value={profile.raw_notes} rows={5} onChange={(v) => onChange("raw_notes", v)} placeholder="Useful context, subtleties, edge cases." />
         </div>
       </details>
+    </div>
+  );
+}
+
+function KnowledgeVoiceStep({
+  manualProcess,
+  pastedText,
+  fileName,
+  extraction,
+  loading,
+  saving,
+  error,
+  disabled,
+  onManualProcessChange,
+  onPastedTextChange,
+  onFileNameChange,
+  onFileBase64Change,
+  onPreviewChange,
+  onExtract,
+  onTrain,
+}: {
+  manualProcess: string;
+  pastedText: string;
+  fileName: string;
+  extraction: KnowledgeExtraction | null;
+  loading: boolean;
+  saving: boolean;
+  error: string | null;
+  disabled: boolean;
+  onManualProcessChange: (value: string) => void;
+  onPastedTextChange: (value: string) => void;
+  onFileNameChange: (value: string) => void;
+  onFileBase64Change: (value: string) => void;
+  onPreviewChange: (section: string, items: string[]) => void;
+  onExtract: () => void;
+  onTrain: () => void;
+}) {
+  const canExtract = Boolean(manualProcess.trim() || pastedText.trim() || fileName);
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    onFileNameChange(file.name);
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
+    onFileBase64Change(window.btoa(binary));
+
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    if (!extension || !["txt", "md", "markdown", "csv"].includes(extension)) {
+      return;
+    }
+    onPastedTextChange(new TextDecoder("utf-8").decode(buffer));
+  }
+
+  return (
+    <div>
+      <SectionHeader
+        eyebrow="Knowledge & voice"
+        title="Upload your knowledge and voice"
+        description="Add sales scripts, FAQs, SOPs, call notes, YouTube transcripts, podcast transcripts, captions, or newsletters. Angellos will learn what you sell, how your sales process works, and how you speak."
+        action={
+          <button type="button" onClick={onExtract} disabled={disabled || loading || !canExtract} style={primaryButton(disabled || loading || !canExtract)}>
+            {loading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+            {loading ? "Reading..." : "Review what Angellos learned"}
+          </button>
+        }
+      />
+
+      <div style={styles.knowledgeGrid}>
+        <section style={styles.knowledgeCard}>
+          <h3 style={styles.cardTitle}>Write your sales process</h3>
+          <p style={styles.toolText}>How do you usually handle a good DM conversation?</p>
+          <textarea
+            value={manualProcess}
+            rows={8}
+            disabled={disabled || loading || saving}
+            onChange={(event) => onManualProcessChange(event.target.value)}
+            placeholder={"Example:\nWhen someone says they are interested, I first ask what they sell and how many leads they get per month. If they have a $500+ offer and use Instagram for sales, I send them the application page. I don’t send Calendly before they apply."}
+            style={styles.refineInput}
+          />
+        </section>
+
+        <section style={styles.knowledgeCard}>
+          <h3 style={styles.cardTitle}>Upload your knowledge and voice</h3>
+          <p style={styles.toolText}>Upload your sales script, FAQ, SOP, offer doc, call notes, DM process, YouTube transcript, podcast transcript, newsletter, captions, or voice note transcript.</p>
+          <label style={styles.uploadBox}>
+            <input
+              type="file"
+              accept=".txt,.md,.markdown,.csv,.pdf,.docx"
+              disabled={disabled || loading || saving}
+              onChange={handleFileChange}
+              style={{ display: "none" }}
+            />
+            <FileJson size={18} />
+            <span>{fileName || "Upload TXT, Markdown, CSV, PDF or DOCX"}</span>
+            <small>PDF, DOCX, TXT, Markdown and CSV are supported.</small>
+          </label>
+          <textarea
+            value={pastedText}
+            rows={8}
+            disabled={disabled || loading || saving}
+            onChange={(event) => onPastedTextChange(event.target.value)}
+            placeholder="Paste a YouTube transcript, podcast transcript, sales script, FAQ, captions, newsletter, SOP, or call notes here."
+            style={styles.refineInput}
+          />
+        </section>
+      </div>
+
+      {error && <p style={styles.inlineError}>{error}</p>}
+
+      {extraction && (
+        <section style={styles.learnedPanel}>
+          <div style={styles.toolHeader}>
+            <div>
+              <h3 style={styles.cardTitle}>Angellos learned from your files</h3>
+              <p style={styles.toolText}>Edit or remove anything before saving it.</p>
+            </div>
+            <button type="button" onClick={onTrain} disabled={disabled || saving} style={primaryButton(disabled || saving)}>
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+              {saving ? "Training Angellos..." : "Looks good, train Angellos"}
+            </button>
+          </div>
+          <div style={styles.knowledgePreviewGrid}>
+            {KNOWLEDGE_PREVIEW_SECTIONS.map((section) => (
+              <KnowledgePreviewSection
+                key={section.key}
+                title={section.title}
+                items={extraction.preview?.[section.key] || []}
+                onChange={(items) => onPreviewChange(section.key, items)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
@@ -1677,11 +1927,13 @@ function PreviewPanel({
   avatar,
   rules,
   activeStep,
+  onEdit,
 }: {
   profile: TrainingProfileInput;
   avatar: AgentAvatar;
   rules: AgentSalesRules;
   activeStep: StepId;
+  onEdit: (step: StepId) => void;
 }) {
   const topAvatarItems = [
     ...getStringList(avatar.pain_points).slice(0, 2),
@@ -1691,6 +1943,9 @@ function PreviewPanel({
     ...getStringList(rules.qualification_questions).slice(0, 2),
     ...getStringList(rules.call_offer_conditions).slice(0, 2),
   ].slice(0, 4);
+  const salesProcess = typeof profile.sales_process === "string" ? profile.sales_process : "";
+  const nextStep = typeof profile.next_step === "string" ? profile.next_step : "";
+  const voiceProfile = typeof profile.voice_profile === "string" ? profile.voice_profile : "";
 
   return (
     <div style={styles.previewInner}>
@@ -1706,13 +1961,13 @@ function PreviewPanel({
             : "Generate and review the avatar to get a usable summary."}
       </p>
 
-      <PreviewSection title="Your offer">
+      <PreviewSection title="Your offer" onEdit={() => onEdit("business")}>
         <PreviewLine label="Promise" value={profile.offer_promise} />
         <PreviewLine label="Format" value={profile.offer_format} />
         <PreviewLine label="Price" value={profile.price} />
       </PreviewSection>
 
-      <PreviewSection title="Your ideal customer">
+      <PreviewSection title="Your ideal customer" onEdit={() => onEdit("avatar-input")}>
         {topAvatarItems.length > 0 ? (
           <MiniList items={topAvatarItems} />
         ) : (
@@ -1720,21 +1975,48 @@ function PreviewPanel({
         )}
       </PreviewSection>
 
-      <PreviewSection title="How Angellos should reply">
+      <PreviewSection title="How Angellos should reply" onEdit={() => onEdit("rules")}>
         {topRules.length > 0 ? (
           <MiniList items={topRules} />
         ) : (
           <p style={styles.emptyText}>Conversation rules will appear here.</p>
         )}
       </PreviewSection>
+
+      <PreviewSection title="Your sales process" onEdit={() => onEdit("knowledge")}>
+        <PreviewShortText value={salesProcess} empty="Sales process notes will appear here." />
+      </PreviewSection>
+
+      <PreviewSection title="Your next step" onEdit={() => onEdit("knowledge")}>
+        <PreviewShortText value={nextStep} empty="The next step will appear here." />
+      </PreviewSection>
+
+      <PreviewSection title="Your voice" onEdit={() => onEdit("knowledge")}>
+        <PreviewShortText value={voiceProfile || getStringList(profile.tone_rules).slice(0, 2).join(" ")} empty="Voice notes will appear here." />
+      </PreviewSection>
+
+      <PreviewSection title="Forbidden topics" onEdit={() => onEdit("knowledge")}>
+        {getStringList(profile.forbidden_phrases).length > 0 ? (
+          <MiniList items={getStringList(profile.forbidden_phrases).slice(0, 3)} />
+        ) : (
+          <p style={styles.emptyText}>Words and claims to avoid will appear here.</p>
+        )}
+      </PreviewSection>
     </div>
   );
 }
 
-function PreviewSection({ title, children }: { title: string; children: React.ReactNode }) {
+function PreviewSection({ title, children, onEdit }: { title: string; children: React.ReactNode; onEdit?: () => void }) {
   return (
     <section style={styles.previewSection}>
-      <h3 style={styles.previewSectionTitle}>{title}</h3>
+      <div style={styles.previewSectionHeader}>
+        <h3 style={styles.previewSectionTitle}>{title}</h3>
+        {onEdit && (
+          <button type="button" style={styles.previewEditButton} onClick={onEdit}>
+            Edit
+          </button>
+        )}
+      </div>
       {children}
     </section>
   );
@@ -1750,6 +2032,12 @@ function PreviewLine({ label, value }: { label: string; value: string }) {
   );
 }
 
+function PreviewShortText({ value, empty }: { value: string; empty: string }) {
+  if (!value) return <p style={styles.emptyText}>{empty}</p>;
+  const short = value.length > 160 ? `${value.slice(0, 157)}...` : value;
+  return <p style={styles.previewText}>{short}</p>;
+}
+
 function MiniList({ items }: { items: string[] }) {
   return (
     <ul style={styles.miniList}>
@@ -1757,6 +2045,44 @@ function MiniList({ items }: { items: string[] }) {
         <li key={item} style={styles.miniListItem}>{item}</li>
       ))}
     </ul>
+  );
+}
+
+function KnowledgePreviewSection({
+  title,
+  items,
+  onChange,
+}: {
+  title: string;
+  items: string[];
+  onChange: (items: string[]) => void;
+}) {
+  const visibleItems = items.length > 0 ? items : [""];
+  return (
+    <section style={styles.knowledgePreviewCard}>
+      <div style={styles.listHeader}>
+        <span>{title}</span>
+        <button type="button" style={styles.textButton} onClick={() => onChange([...items, "New item"])}>Add item</button>
+      </div>
+      <div style={styles.knowledgeItems}>
+        {visibleItems.map((item, index) => (
+          <div key={`${title}-${index}`} style={styles.knowledgeItemRow}>
+            <textarea
+              rows={2}
+              value={item}
+              onChange={(event) => {
+                const next = [...visibleItems];
+                next[index] = event.target.value;
+                onChange(next.filter((value) => value.trim()));
+              }}
+              placeholder="Nothing found yet."
+              style={styles.knowledgeItemInput}
+            />
+            <button type="button" style={styles.textButton} onClick={() => onChange(visibleItems.filter((_, itemIndex) => itemIndex !== index))}>Remove</button>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -1807,6 +2133,59 @@ function plainRuleLabel(label: string): string {
   return labels[label] || label.replace("DM", "Conversation");
 }
 
+function mapKnowledgePreviewToPatch(current: KnowledgeExtraction, section: string, items: string[]): Partial<KnowledgeExtraction> {
+  const clean = items.map((item) => item.trim()).filter(Boolean);
+  if (section === "sales_process_found") {
+    return { profile_patch: { ...current.profile_patch, sales_process: clean.join("\n") } };
+  }
+  if (section === "qualification_questions_found") {
+    return { rules_patch: { ...current.rules_patch, qualification_questions: clean } };
+  }
+  if (section === "good_fit_signals") {
+    return {
+      avatar_patch: { ...current.avatar_patch, buying_triggers: clean },
+      rules_patch: { ...current.rules_patch, buying_signals: clean },
+    };
+  }
+  if (section === "bad_fit_signals") {
+    return {
+      avatar_patch: { ...current.avatar_patch, bad_fit: clean },
+      rules_patch: { ...current.rules_patch, red_flags: clean },
+    };
+  }
+  if (section === "next_step") {
+    return {
+      profile_patch: { ...current.profile_patch, next_step: clean.join("\n") },
+      rules_patch: { ...current.rules_patch, call_offer_conditions: clean },
+    };
+  }
+  if (section === "objection_answers") {
+    return {
+      avatar_patch: { ...current.avatar_patch, objections: clean },
+      rules_patch: { ...current.rules_patch, objection_responses: clean },
+    };
+  }
+  if (section === "faq_answers") {
+    return { rules_patch: { ...current.rules_patch, faq_answers: clean } };
+  }
+  if (section === "voice_profile_found") {
+    return { profile_patch: { ...current.profile_patch, voice_profile: clean.join("\n") } };
+  }
+  if (section === "phrases_to_use") {
+    return {
+      profile_patch: { ...current.profile_patch, tone_rules: clean },
+      avatar_patch: { ...current.avatar_patch, exact_words: clean },
+    };
+  }
+  if (section === "phrases_to_avoid") {
+    return {
+      profile_patch: { ...current.profile_patch, forbidden_phrases: clean },
+      rules_patch: { ...current.rules_patch, do_not_say: clean },
+    };
+  }
+  return {};
+}
+
 function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -1835,6 +2214,7 @@ function formatRelativeDate(value: string): string {
 
 function stepDone(step: StepId, checklist: ReturnType<typeof buildTrainingChecklist>): boolean {
   if (step === "business") return checklist.business === "Complete";
+  if (step === "knowledge") return checklist.business === "Complete";
   if (step === "avatar-input") return checklist.business === "Complete";
   if (step === "avatar-review") return checklist.avatar === "Complete";
   if (step === "rules") return checklist.rules === "Complete";
@@ -2191,11 +2571,28 @@ const styles: Record<string, React.CSSProperties> = {
     borderTop: "1px solid #edf1f5",
     paddingTop: 13,
   },
+  previewSectionHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 8,
+  },
   previewSectionTitle: {
-    margin: "0 0 8px",
+    margin: 0,
     color: "#0f172a",
     fontSize: 13,
     fontWeight: 850,
+  },
+  previewEditButton: {
+    border: "1px solid #dbeafe",
+    borderRadius: 8,
+    background: "#f8fbff",
+    color: "#2563eb",
+    fontSize: 11,
+    fontWeight: 800,
+    padding: "5px 8px",
+    cursor: "pointer",
   },
   previewLine: {
     display: "grid",
@@ -2319,6 +2716,77 @@ const styles: Record<string, React.CSSProperties> = {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
     gap: 12,
+  },
+  knowledgeGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
+    gap: 14,
+  },
+  knowledgeCard: {
+    border: "1px solid #e6ebf2",
+    borderRadius: 8,
+    background: "#fbfdff",
+    padding: 14,
+    display: "grid",
+    gap: 10,
+    minWidth: 0,
+  },
+  uploadBox: {
+    border: "1px dashed #b9d7ff",
+    borderRadius: 8,
+    background: "#f8fbff",
+    color: "#1e3a8a",
+    padding: 14,
+    display: "grid",
+    gap: 5,
+    placeItems: "center",
+    textAlign: "center",
+    cursor: "pointer",
+    fontSize: 13,
+    fontWeight: 800,
+  },
+  learnedPanel: {
+    border: "1px solid #dbeafe",
+    borderRadius: 8,
+    background: "#fff",
+    padding: 16,
+    marginTop: 16,
+  },
+  knowledgePreviewGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
+    gap: 12,
+  },
+  knowledgePreviewCard: {
+    border: "1px solid #e6ebf2",
+    borderRadius: 8,
+    background: "#fbfdff",
+    padding: 12,
+    display: "grid",
+    gap: 9,
+  },
+  knowledgeItems: {
+    display: "grid",
+    gap: 8,
+  },
+  knowledgeItemRow: {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) auto",
+    alignItems: "center",
+    gap: 8,
+  },
+  knowledgeItemInput: {
+    width: "100%",
+    border: "1px solid #dfe5ee",
+    borderRadius: 8,
+    background: "#fff",
+    color: "#111827",
+    fontSize: 12,
+    padding: "8px 10px",
+    outline: "none",
+    fontFamily: "inherit",
+    resize: "vertical",
+    lineHeight: 1.4,
   },
   promptField: {
     border: "1px solid #e6ebf2",

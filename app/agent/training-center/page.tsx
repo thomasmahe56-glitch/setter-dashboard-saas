@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  Eye,
   FileJson,
   GraduationCap,
   Loader2,
@@ -31,6 +32,7 @@ import {
   KnowledgeExtraction,
   PromptRefinementResult,
   PromptVersion,
+  PromptVersionMemory,
   TrainingProfileInput,
 } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
@@ -1917,12 +1919,32 @@ function PromptHistory({
   restoreLoading: string | null;
   onRestore: (versionId: string) => void;
 }) {
+  const [selectedVersion, setSelectedVersion] = useState<PromptVersion | null>(null);
+  const [memory, setMemory] = useState<PromptVersionMemory | null>(null);
+  const [memoryLoading, setMemoryLoading] = useState(false);
+  const [memoryError, setMemoryError] = useState<string | null>(null);
+
+  async function handleInspect(version: PromptVersion) {
+    setSelectedVersion(version);
+    setMemory(null);
+    setMemoryError(null);
+    setMemoryLoading(true);
+    try {
+      const snapshot = await api.getPromptVersionMemory(version.id);
+      setMemory(snapshot);
+    } catch (error) {
+      setMemoryError(error instanceof Error ? error.message : "Unable to inspect this version.");
+    } finally {
+      setMemoryLoading(false);
+    }
+  }
+
   return (
     <section style={styles.toolCard}>
       <div style={styles.toolHeader}>
         <div>
           <h3 style={styles.cardTitle}>Version history</h3>
-          <p style={styles.toolText}>Rollback if a recent change made Angellos worse.</p>
+          <p style={styles.toolText}>See what Angellos learned and roll back if needed.</p>
         </div>
       </div>
 
@@ -1944,20 +1966,161 @@ function PromptHistory({
                   </div>
                   <div style={styles.versionMeta}>{formatRelativeDate(version.created_at)}</div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onRestore(version.id)}
-                  disabled={active || Boolean(restoreLoading)}
-                  style={secondaryButton(active || Boolean(restoreLoading))}
-                >
-                  {restoring ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-                  Rollback
-                </button>
+                <div style={styles.versionActions}>
+                  <button type="button" onClick={() => handleInspect(version)} style={secondaryButton(false)}>
+                    <Eye size={14} />
+                    View
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRestore(version.id)}
+                    disabled={active || Boolean(restoreLoading)}
+                    style={secondaryButton(active || Boolean(restoreLoading))}
+                  >
+                    {restoring ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                    Rollback
+                  </button>
+                </div>
               </div>
             );
           })
         )}
       </div>
+
+      {selectedVersion && (
+        <VersionMemoryModal
+          version={selectedVersion}
+          memory={memory}
+          loading={memoryLoading}
+          error={memoryError}
+          restoreLoading={restoreLoading}
+          onClose={() => {
+            setSelectedVersion(null);
+            setMemory(null);
+            setMemoryError(null);
+          }}
+          onRestore={() => onRestore(selectedVersion.id)}
+        />
+      )}
+    </section>
+  );
+}
+
+function VersionMemoryModal({
+  version,
+  memory,
+  loading,
+  error,
+  restoreLoading,
+  onClose,
+  onRestore,
+}: {
+  version: PromptVersion;
+  memory: PromptVersionMemory | null;
+  loading: boolean;
+  error: string | null;
+  restoreLoading: string | null;
+  onClose: () => void;
+  onRestore: () => void;
+}) {
+  const restoring = restoreLoading === version.id;
+
+  return (
+    <div style={styles.modalBackdrop} role="dialog" aria-modal="true" aria-labelledby="version-memory-title">
+      <div style={styles.memoryModal}>
+        <div style={styles.memoryModalHeader}>
+          <div>
+            <span style={styles.previewEyebrow}>Version memory</span>
+            <h3 id="version-memory-title" style={styles.memoryModalTitle}>What Angellos knew in this version</h3>
+            <p style={styles.memoryModalMeta}>
+              {formatDate(version.created_at)}
+              {version.is_active && <span style={styles.activePill}>Active</span>}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} style={ghostButton(false)}>Close</button>
+        </div>
+
+        {loading ? (
+          <div style={styles.memoryLoading}>
+            <Loader2 size={16} className="animate-spin" />
+            Loading what Angellos knew...
+          </div>
+        ) : error ? (
+          <p style={styles.inlineError}>{error}</p>
+        ) : memory ? (
+          <div style={styles.memoryContent}>
+            <MemorySection title="Summary">
+              <p style={styles.memoryText}>{memory.summary}</p>
+              {memory.source.detail && (
+                <div style={styles.createdFromBox}>
+                  <strong>Created from correction:</strong>
+                  <span>“{memory.source.detail}”</span>
+                </div>
+              )}
+              {!memory.source.detail && memory.source.label && (
+                <div style={styles.createdFromBox}>
+                  <strong>Created from:</strong>
+                  <span>{memory.source.label}</span>
+                </div>
+              )}
+            </MemorySection>
+
+            <MemorySection title="Your offer">
+              <p style={styles.memoryText}>{memory.offer}</p>
+            </MemorySection>
+
+            <MemorySection title="Ideal customer">
+              <p style={styles.memoryText}>{memory.ideal_customer}</p>
+            </MemorySection>
+
+            <MemorySection title="Sales process">
+              <MiniList items={memory.sales_process.length > 0 ? memory.sales_process : ["No sales process was saved in this version."]} />
+            </MemorySection>
+
+            <MemorySection title="Next step">
+              <p style={styles.memoryText}>{memory.next_step}</p>
+            </MemorySection>
+
+            <MemorySection title="Voice">
+              <p style={styles.memoryText}>{memory.voice}</p>
+            </MemorySection>
+
+            <MemorySection title="Conversation rules">
+              <MiniList items={memory.conversation_rules.length > 0 ? memory.conversation_rules : ["No specific conversation rules were saved in this version."]} />
+            </MemorySection>
+
+            <MemorySection title="Forbidden topics">
+              <MiniList items={memory.forbidden_topics.length > 0 ? memory.forbidden_topics : ["No forbidden topics were saved in this version."]} />
+            </MemorySection>
+
+            <MemorySection title="What changed">
+              <MiniList items={memory.what_changed.length > 0 ? memory.what_changed : ["No readable change summary is available for this version."]} />
+            </MemorySection>
+          </div>
+        ) : null}
+
+        <div style={styles.memoryModalFooter}>
+          <button type="button" onClick={onClose} style={ghostButton(false)}>Close</button>
+          <button
+            type="button"
+            onClick={onRestore}
+            disabled={version.is_active || Boolean(restoreLoading)}
+            style={primaryButton(version.is_active || Boolean(restoreLoading))}
+          >
+            {restoring ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />}
+            Rollback to this version
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MemorySection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section style={styles.memorySection}>
+      <h4 style={styles.memorySectionTitle}>{title}</h4>
+      {children}
     </section>
   );
 }
@@ -3306,6 +3469,13 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 10,
     background: "#fbfdff",
   },
+  versionActions: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 8,
+    flexWrap: "wrap",
+  },
   versionTitle: {
     display: "flex",
     alignItems: "center",
@@ -3333,6 +3503,108 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "2px 7px",
     fontSize: 10,
     fontWeight: 850,
+  },
+  modalBackdrop: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 80,
+    background: "rgba(15, 23, 42, 0.42)",
+    display: "grid",
+    placeItems: "center",
+    padding: 20,
+  },
+  memoryModal: {
+    width: "min(920px, 100%)",
+    maxHeight: "min(86vh, 860px)",
+    overflow: "auto",
+    borderRadius: 8,
+    background: "#fff",
+    border: "1px solid #dfe5ee",
+    boxShadow: "0 24px 80px rgba(15, 23, 42, 0.22)",
+  },
+  memoryModalHeader: {
+    position: "sticky",
+    top: 0,
+    zIndex: 1,
+    background: "#fff",
+    borderBottom: "1px solid #edf1f5",
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 16,
+    padding: 18,
+  },
+  memoryModalTitle: {
+    margin: "4px 0 6px",
+    color: "#0f172a",
+    fontSize: 21,
+    lineHeight: 1.2,
+  },
+  memoryModalMeta: {
+    margin: 0,
+    color: "#64748b",
+    fontSize: 12,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  memoryLoading: {
+    minHeight: 180,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    color: "#64748b",
+    fontSize: 13,
+    fontWeight: 750,
+  },
+  memoryContent: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
+    gap: 12,
+    padding: 18,
+  },
+  memorySection: {
+    border: "1px solid #edf1f5",
+    borderRadius: 8,
+    background: "#fbfdff",
+    padding: 13,
+    minWidth: 0,
+  },
+  memorySectionTitle: {
+    margin: "0 0 8px",
+    color: "#0f172a",
+    fontSize: 13,
+    fontWeight: 850,
+  },
+  memoryText: {
+    margin: 0,
+    color: "#475569",
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
+  createdFromBox: {
+    marginTop: 10,
+    borderRadius: 8,
+    background: "#eef6ff",
+    border: "1px solid #dbeafe",
+    color: "#1e3a8a",
+    padding: 10,
+    display: "grid",
+    gap: 4,
+    fontSize: 12,
+    lineHeight: 1.45,
+  },
+  memoryModalFooter: {
+    position: "sticky",
+    bottom: 0,
+    background: "#fff",
+    borderTop: "1px solid #edf1f5",
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: 10,
+    padding: 14,
   },
   cardTitle: {
     margin: "0 0 8px",

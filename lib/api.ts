@@ -235,6 +235,25 @@ export interface PromptVersion {
   previous_version_id?: string | null;
 }
 
+export interface PromptVersionMemory {
+  id: string;
+  created_at: string;
+  is_active: boolean;
+  source: {
+    label: string;
+    detail: string;
+  };
+  summary: string;
+  offer: string;
+  ideal_customer: string;
+  sales_process: string[];
+  next_step: string;
+  voice: string;
+  conversation_rules: string[];
+  forbidden_topics: string[];
+  what_changed: string[];
+}
+
 export interface PromptRefinementResult {
   success: boolean;
   applied: boolean;
@@ -372,6 +391,8 @@ export const api = {
     }),
   getPromptVersions: () =>
     apiFetch<PromptVersion[]>("/prompt-versions"),
+  getPromptVersionMemory: (versionId: string) =>
+    apiFetch<PromptVersionMemory>(`/prompt-versions/${versionId}/memory`),
   restorePromptVersion: (versionId: string) =>
     apiFetch<{ success: boolean }>(`/prompt-versions/${versionId}/restore`, {
       method: "POST",

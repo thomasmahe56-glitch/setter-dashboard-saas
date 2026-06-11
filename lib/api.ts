@@ -202,9 +202,19 @@ export interface TrainingCenterState {
   sales_rules: { id: string; rules: AgentSalesRules; updated_at: string } | null;
   checklist: {
     business_setup: boolean;
+    knowledge_voice?: boolean;
     avatar_client: boolean;
-    regles_dm: boolean;
+    regles_dm?: boolean;
     test_conversation: boolean;
+  };
+  main_steps?: { id: string; label: string }[];
+  what_angellos_knows?: {
+    conversation_guidance?: string[];
+  };
+  advanced?: {
+    developer_mode: boolean;
+    conversation_rules_available: boolean;
+    conversation_rules: { id: string; rules: AgentSalesRules; updated_at: string } | null;
   };
   progress_score: number;
 }
@@ -280,8 +290,8 @@ export const api = {
     apiFetch<FollowUpSendResult>(`/follow-ups/${conversationId}/send-auto-23h`, {
       method: "POST",
     }),
-  getTrainingCenter: () =>
-    apiFetch<TrainingCenterState>("/agent/training-center"),
+  getTrainingCenter: (developerMode = false) =>
+    apiFetch<TrainingCenterState>(`/agent/training-center${developerMode ? "?developer_mode=true" : ""}`),
   saveTrainingProfile: (profile: TrainingProfileInput) =>
     apiFetch<{ success: boolean; profile: unknown }>("/agent/profile/save", {
       method: "POST",

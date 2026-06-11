@@ -20,6 +20,7 @@ export type TrainingProgressInput = {
 
 export type TrainingChecklist = {
   business: "Complete" | "To complete";
+  knowledge: "Complete" | "To complete";
   avatar: "Complete" | "To review" | "Generated" | "To complete";
   rules: "Complete" | "Generated" | "To review" | "To complete";
   activation: "Prompt rebuilt" | "To do";
@@ -77,6 +78,16 @@ export function isBusinessComplete(profile: TrainingProfileInput): boolean {
     profile.offer_format,
     profile.price,
   ].every((value) => value.trim().length > 0);
+}
+
+export function isKnowledgeComplete(profile: TrainingProfileInput): boolean {
+  return Boolean(
+    profile.sales_process?.trim() ||
+    profile.next_step?.trim() ||
+    profile.voice_profile?.trim() ||
+    getStringList(profile.tone_rules).length > 0 ||
+    getStringList(profile.forbidden_phrases).length > 0,
+  );
 }
 
 export function hasMinimumAvatarInput(input: {
@@ -140,7 +151,6 @@ export function wasPromptRebuiltFromTrainingCenter(promptVersions: PromptVersion
 export function calculateTrainingProgress({
   profile,
   avatar,
-  rules,
   promptRebuilt,
   chatMessages,
 }: TrainingProgressInput): number {
@@ -155,7 +165,15 @@ export function calculateTrainingProgress({
     profile.offer_format,
     profile.price,
   ];
-  score += Math.round((businessFields.filter((value) => value.trim()).length / businessFields.length) * 25);
+  score += Math.round((businessFields.filter((value) => value.trim()).length / businessFields.length) * 30);
+
+  const knowledgeChecks = [
+    Boolean(profile.sales_process?.trim()),
+    Boolean(profile.next_step?.trim()),
+    Boolean(profile.voice_profile?.trim() || getStringList(profile.tone_rules).length > 0),
+    getStringList(profile.forbidden_phrases).length > 0,
+  ];
+  score += Math.round((knowledgeChecks.filter(Boolean).length / knowledgeChecks.length) * 20);
 
   const avatarChecks = [
     Boolean(typeof avatar.persona_summary === "string" && avatar.persona_summary.trim()),
@@ -167,15 +185,6 @@ export function calculateTrainingProgress({
     getStringList(avatar.exact_words).length >= 3,
   ];
   score += Math.round((avatarChecks.filter(Boolean).length / avatarChecks.length) * 30);
-
-  const rulesChecks = [
-    getStringList(rules.qualification_questions).length >= 3,
-    getStringList(rules.buying_signals).length >= 3,
-    getStringList(rules.call_offer_conditions).length >= 2,
-    getStringList(rules.objection_responses).length >= 2,
-    getStringList(rules.do_not_say).length >= 2,
-  ];
-  score += Math.round((rulesChecks.filter(Boolean).length / rulesChecks.length) * 25);
 
   if (promptRebuilt) score += 10;
   if (hasCompletedPlayground(chatMessages)) score += 10;
@@ -192,6 +201,7 @@ export function buildTrainingChecklist({
 }: TrainingProgressInput): TrainingChecklist {
   return {
     business: isBusinessComplete(profile) ? "Complete" : "To complete",
+    knowledge: isKnowledgeComplete(profile) ? "Complete" : "To complete",
     avatar: isAvatarComplete(avatar)
       ? "Complete"
       : isAvatarMeaningful(avatar)

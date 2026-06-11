@@ -43,7 +43,6 @@ import {
   isAvatarComplete,
   isAvatarMeaningful,
   isBusinessComplete,
-  isRulesComplete,
   isRulesMeaningful,
   listToText,
   parseJsonObject,
@@ -80,6 +79,7 @@ const EMPTY_AVATAR_INPUT: AvatarGenerateInput = {
 };
 
 type StepId = "business" | "knowledge" | "avatar-input" | "avatar-review" | "rules" | "launch";
+type MainStepId = Exclude<StepId, "rules">;
 type Notice = { kind: "success" | "error"; text: string } | null;
 type AutosaveKey = "profile" | "avatarInput" | "avatar" | "rules";
 type AutosaveStatus = "idle" | "saving" | "saved" | "error";
@@ -95,7 +95,7 @@ const PROMPT_REFINEMENT_CHIPS = [
 ];
 
 const STEPS: {
-  id: StepId;
+  id: MainStepId;
   title: string;
   eyebrow: string;
   description: string;
@@ -125,18 +125,24 @@ const STEPS: {
     description: "Review what Angellos understood.",
   },
   {
-    id: "rules",
-    eyebrow: "05",
-    title: "Conversation rules",
-    description: "How Angellos should reply.",
-  },
-  {
     id: "launch",
-    eyebrow: "06",
-    title: "Test and launch",
+    eyebrow: "04",
+    title: "Test Angellos",
     description: "Try it and improve replies.",
   },
 ];
+
+const DEVELOPER_RULES_STEP: {
+  id: StepId;
+  title: string;
+  eyebrow: string;
+  description: string;
+} = {
+  id: "rules",
+  eyebrow: "DEV",
+  title: "Conversation rules",
+  description: "Advanced settings.",
+};
 
 const AVATAR_LABELS: Record<keyof AvatarGenerateInput, { label: string; hint: string; placeholder: string }> = {
   client_ideal: {
@@ -219,6 +225,7 @@ const KNOWLEDGE_PREVIEW_SECTIONS = [
 
 export default function TrainingCenterPage() {
   const [activeStep, setActiveStep] = useState<StepId>("business");
+  const [developerMode, setDeveloperMode] = useState(false);
   const [profile, setProfile] = useState<TrainingProfileInput>(EMPTY_PROFILE);
   const [avatarInput, setAvatarInput] = useState<AvatarGenerateInput>(EMPTY_AVATAR_INPUT);
   const [avatarJson, setAvatarJson] = useState("{}");
@@ -239,6 +246,7 @@ export default function TrainingCenterPage() {
   const [knowledgeFileName, setKnowledgeFileName] = useState("");
   const [knowledgeFileBase64, setKnowledgeFileBase64] = useState("");
   const [knowledgeExtraction, setKnowledgeExtraction] = useState<KnowledgeExtraction | null>(null);
+  const [conversationGuidance, setConversationGuidance] = useState<string[]>([]);
   const [knowledgeLoading, setKnowledgeLoading] = useState(false);
   const [knowledgeSaving, setKnowledgeSaving] = useState(false);
   const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
@@ -260,6 +268,7 @@ export default function TrainingCenterPage() {
     rules: { status: "idle", savedAt: null },
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const profileAutosaveSignatureRef = useRef<string | null>(null);
   const avatarInputAutosaveSignatureRef = useRef<string | null>(null);
@@ -270,32 +279,35 @@ export default function TrainingCenterPage() {
     setProfile({ ...EMPTY_PROFILE, ...(data.profile?.profile || {}) });
     setAvatarInput({ ...EMPTY_AVATAR_INPUT, ...(data.avatar?.source_inputs || {}) });
     setAvatarJson(prettyJson(data.avatar?.avatar || {}));
-    setRulesJson(prettyJson(data.sales_rules?.rules || {}));
+    setRulesJson(prettyJson((data.advanced?.conversation_rules || data.sales_rules)?.rules || {}));
+    setConversationGuidance(data.what_angellos_knows?.conversation_guidance || []);
   }, []);
 
   const refreshTrainingCenterState = useCallback(async () => {
-    const data = await api.getTrainingCenter();
+    const data = await api.getTrainingCenter(developerMode);
     applyTrainingCenterState(data);
-  }, [applyTrainingCenterState]);
+  }, [applyTrainingCenterState, developerMode]);
 
   useEffect(() => {
     createClient().auth.getSession().then(({ data }) => {
       if (!data.session) window.location.href = "/login";
     });
+    const params = new URLSearchParams(window.location.search);
+    setDeveloperMode(params.get("developer_mode") === "true" || params.get("developer") === "1");
   }, []);
 
   const loadTrainingCenter = useCallback(async () => {
     setLoading(true);
     setNotice(null);
     try {
-      const data = await api.getTrainingCenter();
+      const data = await api.getTrainingCenter(developerMode);
       applyTrainingCenterState(data);
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Unable to load" });
     } finally {
       setLoading(false);
     }
-  }, [applyTrainingCenterState]);
+  }, [applyTrainingCenterState, developerMode]);
 
   const loadPromptVersions = useCallback(async () => {
     setVersionsLoading(true);
@@ -318,7 +330,9 @@ export default function TrainingCenterPage() {
   }, [loadPromptVersions]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const chatContainer = chatScrollRef.current;
+    if (!chatContainer) return;
+    chatContainer.scrollTop = chatContainer.scrollHeight;
   }, [chatMessages, chatLoading]);
 
   const avatar = useMemo(() => {
@@ -361,16 +375,26 @@ export default function TrainingCenterPage() {
   const angelosLevel = useMemo(() => getAngelosLevel(trainingProgress), [trainingProgress]);
   const canGenerateAvatar = hasMinimumAvatarInput(avatarInput);
   const canGenerateRules = isAvatarMeaningful(avatar);
-  const canRebuildPrompt = isBusinessComplete(profile) && isAvatarComplete(avatar) && isRulesComplete(rules);
+  const canRebuildPrompt = isBusinessComplete(profile) && isAvatarComplete(avatar);
   const profileAutosaveSignature = useMemo(() => JSON.stringify(profile), [profile]);
   const avatarInputAutosaveSignature = useMemo(() => JSON.stringify(avatarInput), [avatarInput]);
   const avatarAutosaveSignature = avatarJson;
   const rulesAutosaveSignature = rulesJson;
 
   const actionDisabled = loading || savingProfile || generatingAvatar || savingAvatar || generatingRules || savingRules || rebuilding || chatLoading || knowledgeLoading || knowledgeSaving || refineLoading || refineApplying || Boolean(restoreLoading);
-  const currentIndex = STEPS.findIndex((step) => step.id === activeStep);
+  const visibleSteps = useMemo(() => {
+    if (!developerMode) return STEPS;
+    return [...STEPS.slice(0, -1), DEVELOPER_RULES_STEP, STEPS[STEPS.length - 1]];
+  }, [developerMode]);
+  const currentIndex = visibleSteps.findIndex((step) => step.id === activeStep);
   const canGoBack = currentIndex > 0;
-  const canGoNext = currentIndex < STEPS.length - 1;
+  const canGoNext = currentIndex >= 0 && currentIndex < visibleSteps.length - 1;
+
+  useEffect(() => {
+    if (!developerMode && activeStep === "rules") {
+      setActiveStep("launch");
+    }
+  }, [activeStep, developerMode]);
 
   const setAutosaveStatus = useCallback((key: AutosaveKey, status: AutosaveStatus) => {
     setAutosave((current) => ({
@@ -495,11 +519,11 @@ export default function TrainingCenterPage() {
   }
 
   function goNext() {
-    if (canGoNext) setActiveStep(STEPS[currentIndex + 1].id);
+    if (canGoNext) setActiveStep(visibleSteps[currentIndex + 1].id);
   }
 
   function goBack() {
-    if (canGoBack) setActiveStep(STEPS[currentIndex - 1].id);
+    if (canGoBack) setActiveStep(visibleSteps[currentIndex - 1].id);
   }
 
   async function handleSaveProfile() {
@@ -546,7 +570,7 @@ export default function TrainingCenterPage() {
       }
       await api.saveAvatar(avatarInput, parsed.value);
       setNotice({ kind: "success", text: "Customer notes saved." });
-      setActiveStep("rules");
+      setActiveStep("launch");
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Invalid avatar" });
     } finally {
@@ -570,7 +594,7 @@ export default function TrainingCenterPage() {
       const data = await api.generateSalesRules(parsed.value, profile);
       setRulesJson(prettyJson(data.rules));
       setNotice({ kind: "success", text: "Conversation rules suggested." });
-      setActiveStep("rules");
+      setActiveStep(developerMode ? "rules" : "launch");
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Unable to generate rules" });
     } finally {
@@ -600,7 +624,7 @@ export default function TrainingCenterPage() {
 
   async function handleRebuildPrompt() {
     if (!canRebuildPrompt) {
-      setNotice({ kind: "error", text: "Complete the offer, ideal customer, and conversation rules before updating Angellos." });
+      setNotice({ kind: "error", text: "Complete the offer and ideal customer before updating Angellos." });
       return;
     }
     setRebuilding(true);
@@ -815,7 +839,7 @@ export default function TrainingCenterPage() {
             />
 
             <nav style={styles.stepList}>
-              {STEPS.map((step, index) => {
+              {visibleSteps.map((step, index) => {
                 const active = step.id === activeStep;
                 const done = stepDone(step.id, trainingChecklist);
                 return (
@@ -832,7 +856,7 @@ export default function TrainingCenterPage() {
                       <span style={styles.stepTitle}>{step.title}</span>
                       <span style={styles.stepDescription}>{step.description}</span>
                     </span>
-                    {index < STEPS.length - 1 && <span style={styles.stepLine} />}
+                    {index < visibleSteps.length - 1 && <span style={styles.stepLine} />}
                   </button>
                 );
               })}
@@ -888,6 +912,7 @@ export default function TrainingCenterPage() {
                 avatar={avatar}
                 avatarJson={avatarJson}
                 showAdvanced={showAdvanced}
+                developerMode={developerMode}
                 disabled={actionDisabled}
                 saving={savingAvatar}
                 autosaveStatus={autosave.avatar.status}
@@ -927,10 +952,9 @@ export default function TrainingCenterPage() {
               <LaunchStep
                 profile={profile}
                 avatar={avatar}
-                rules={rules}
                 disabled={actionDisabled}
                 canRebuild={canRebuildPrompt}
-                rebuildHelp={canRebuildPrompt ? null : "Complete the business profile, avatar, and DM rules before rebuilding."}
+                rebuildHelp={canRebuildPrompt ? null : "Complete the offer and ideal customer before updating Angellos."}
                 rebuilding={rebuilding}
                 messages={chatMessages}
                 input={chatInput}
@@ -945,6 +969,7 @@ export default function TrainingCenterPage() {
                 versionsLoading={versionsLoading}
                 restoreLoading={restoreLoading}
                 messagesEndRef={messagesEndRef}
+                chatScrollRef={chatScrollRef}
                 inputRef={chatInputRef}
                 onInputChange={setChatInput}
                 onSendTestMessage={handleSendTestMessage}
@@ -983,7 +1008,15 @@ export default function TrainingCenterPage() {
           </section>
 
           <aside className="training-preview-pane" style={styles.previewPane}>
-            <PreviewPanel profile={profile} avatar={avatar} rules={rules} activeStep={activeStep} onEdit={setActiveStep} />
+            <PreviewPanel
+              profile={profile}
+              avatar={avatar}
+              rules={rules}
+              conversationGuidance={conversationGuidance}
+              activeStep={activeStep}
+              developerMode={developerMode}
+              onEdit={setActiveStep}
+            />
           </aside>
         </section>
       </div>
@@ -1283,6 +1316,7 @@ function AvatarReviewStep({
   avatar,
   avatarJson,
   showAdvanced,
+  developerMode,
   disabled,
   saving,
   autosaveStatus,
@@ -1298,6 +1332,7 @@ function AvatarReviewStep({
   avatar: AgentAvatar;
   avatarJson: string;
   showAdvanced: boolean;
+  developerMode: boolean;
   disabled: boolean;
   saving: boolean;
   autosaveStatus: AutosaveStatus;
@@ -1367,16 +1402,20 @@ function AvatarReviewStep({
         ))}
       </div>
 
-      <div style={styles.actionRow}>
-        <button type="button" onClick={onGenerateRules} disabled={disabled || !canGenerateRules} style={secondaryButton(disabled || !canGenerateRules)}>
-          {generatingRules ? <Loader2 size={15} className="animate-spin" /> : <MessageSquareText size={15} />}
-          Suggest conversation rules
-        </button>
-        <AdvancedToggle open={showAdvanced} onClick={onToggleAdvanced} />
-      </div>
-      {generateRulesHelp && <p style={styles.actionHelp}>{generateRulesHelp}</p>}
+      {developerMode && (
+        <>
+          <div style={styles.actionRow}>
+            <button type="button" onClick={onGenerateRules} disabled={disabled || !canGenerateRules} style={secondaryButton(disabled || !canGenerateRules)}>
+              {generatingRules ? <Loader2 size={15} className="animate-spin" /> : <MessageSquareText size={15} />}
+              Suggest conversation rules
+            </button>
+            <AdvancedToggle open={showAdvanced} onClick={onToggleAdvanced} />
+          </div>
+          {generateRulesHelp && <p style={styles.actionHelp}>{generateRulesHelp}</p>}
+        </>
+      )}
 
-      {showAdvanced && (
+      {developerMode && showAdvanced && (
         <JsonEditor title="Advanced customer data" value={avatarJson} onChange={onJsonChange} rows={12} />
       )}
     </div>
@@ -1502,7 +1541,6 @@ function RulesStep({
 function LaunchStep({
   profile,
   avatar,
-  rules,
   disabled,
   canRebuild,
   rebuildHelp,
@@ -1520,6 +1558,7 @@ function LaunchStep({
   versionsLoading,
   restoreLoading,
   messagesEndRef,
+  chatScrollRef,
   inputRef,
   onInputChange,
   onSendTestMessage,
@@ -1535,7 +1574,6 @@ function LaunchStep({
 }: {
   profile: TrainingProfileInput;
   avatar: AgentAvatar;
-  rules: AgentSalesRules;
   disabled: boolean;
   canRebuild: boolean;
   rebuildHelp: string | null;
@@ -1553,6 +1591,7 @@ function LaunchStep({
   versionsLoading: boolean;
   restoreLoading: string | null;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  chatScrollRef: React.RefObject<HTMLDivElement | null>;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
   onInputChange: (value: string) => void;
   onSendTestMessage: () => void;
@@ -1573,7 +1612,6 @@ function LaunchStep({
   ].filter((value) => typeof value === "string" && value.trim()).length;
   const avatarListCount = AVATAR_ARRAY_FIELDS.reduce((total, field) => total + getStringList(avatar[field.key]).length, 0);
   const avatarCount = avatarTextCount + avatarListCount;
-  const rulesCount = RULE_FIELDS.reduce((total, field) => total + getStringList(rules[field.key]).length, 0);
   const businessDetailsCount = [
     profile.business_name,
     profile.coach_name,
@@ -1587,7 +1625,7 @@ function LaunchStep({
   return (
     <div>
       <SectionHeader
-        eyebrow="Test and launch"
+        eyebrow="Test Angellos"
         title="Test Angellos"
         description="Act like a prospect and see how Angellos replies. If something feels off, correct it like you would correct a teammate."
         action={
@@ -1597,12 +1635,12 @@ function LaunchStep({
           </button>
         }
       />
-      {rebuildHelp && <p style={styles.actionHelp}>{rebuildHelp.replace("business profile, avatar, and DM rules", "offer, ideal customer, and conversation rules")}</p>}
+      {rebuildHelp && <p style={styles.actionHelp}>{rebuildHelp}</p>}
 
       <div style={styles.launchGrid}>
         <SummaryMetric label="Offer" value={profile.offer_name || profile.business_name || "To complete"} meta={`${businessDetailsCount} details saved`} />
         <SummaryMetric label="Ideal customer" value={avatarCount > 0 ? "Customer context saved" : "To complete"} meta={`${avatarCount} customer insight${avatarCount === 1 ? "" : "s"}`} />
-        <SummaryMetric label="Conversation rules" value={rulesCount > 0 ? "Rules ready" : "To complete"} meta={`${rulesCount} rule${rulesCount === 1 ? "" : "s"}`} />
+        <SummaryMetric label="Learning loop" value="Corrections ready" meta="Improve replies from tests" />
       </div>
 
       <div style={styles.launchPanel}>
@@ -1620,6 +1658,7 @@ function LaunchStep({
           error={chatError}
           disabled={disabled}
           messagesEndRef={messagesEndRef}
+          chatScrollRef={chatScrollRef}
           inputRef={inputRef}
           onInputChange={onInputChange}
           onSend={onSendTestMessage}
@@ -1660,6 +1699,7 @@ function TestConversation({
   error,
   disabled,
   messagesEndRef,
+  chatScrollRef,
   inputRef,
   onInputChange,
   onSend,
@@ -1673,6 +1713,7 @@ function TestConversation({
   error: string | null;
   disabled: boolean;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  chatScrollRef: React.RefObject<HTMLDivElement | null>;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
   onInputChange: (value: string) => void;
   onSend: () => void;
@@ -1693,7 +1734,7 @@ function TestConversation({
         </button>
       </div>
 
-      <div style={styles.chatBox}>
+      <div ref={chatScrollRef} style={styles.chatBox}>
         {messages.length === 0 ? (
           <div style={styles.chatEmpty}>
             <strong>Act like a prospect and see how Angellos replies.</strong>
@@ -1925,13 +1966,17 @@ function PreviewPanel({
   profile,
   avatar,
   rules,
+  conversationGuidance,
   activeStep,
+  developerMode,
   onEdit,
 }: {
   profile: TrainingProfileInput;
   avatar: AgentAvatar;
   rules: AgentSalesRules;
+  conversationGuidance: string[];
   activeStep: StepId;
+  developerMode: boolean;
   onEdit: (step: StepId) => void;
 }) {
   const topAvatarItems = [
@@ -1939,6 +1984,7 @@ function PreviewPanel({
     ...getStringList(avatar.objections).slice(0, 2),
   ].slice(0, 4);
   const topRules = [
+    ...conversationGuidance,
     ...getStringList(rules.qualification_questions).slice(0, 2),
     ...getStringList(rules.call_offer_conditions).slice(0, 2),
   ].slice(0, 4);
@@ -1974,11 +2020,11 @@ function PreviewPanel({
         )}
       </PreviewSection>
 
-      <PreviewSection title="How Angellos should reply" onEdit={() => onEdit("rules")}>
+      <PreviewSection title="How Angellos should reply" onEdit={developerMode ? () => onEdit("rules") : undefined}>
         {topRules.length > 0 ? (
           <MiniList items={topRules} />
         ) : (
-          <p style={styles.emptyText}>Conversation rules will appear here.</p>
+          <p style={styles.emptyText}>Reply guidance will appear after Angellos learns from tests and knowledge.</p>
         )}
       </PreviewSection>
 

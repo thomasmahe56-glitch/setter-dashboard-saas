@@ -31,9 +31,8 @@ export function TrainingProgress({ progress, businessScore, level, checklist }: 
       <div style={styles.checklistBlock}>
         {[
           ["Your offer", checklist.business],
+          ["Knowledge & voice", checklist.knowledge],
           ["Ideal customer", checklist.avatar],
-          ["Conversation rules", checklist.rules],
-          ["Test and launch", checklist.activation],
           ["Test Angellos", checklist.test],
         ].map(([label, status]) => (
           <div key={label} style={styles.checklistRow}>

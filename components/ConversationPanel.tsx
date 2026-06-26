@@ -303,8 +303,13 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
               try {
                 const result = await api.generatePending(c.id);
                 onUpdate(c.id, { pending_message: result.pending_message, pending_message_at: new Date().toISOString() });
-              } catch {
-                setGeneratePendingError("Angellos couldn't generate a reply. Try again.");
+              } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : "";
+                if (msg.includes("404") || msg.includes("Not Found")) {
+                  setGeneratePendingError("Backend is still deploying — wait 1–2 minutes and try again.");
+                } else {
+                  setGeneratePendingError(`Angellos couldn't generate a reply: ${msg || "unknown error"}`);
+                }
               }
               setGeneratingPending(false);
             }}

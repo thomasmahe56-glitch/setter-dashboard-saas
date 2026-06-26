@@ -54,10 +54,13 @@ export function avatarBg(name: string): string {
 }
 
 const PLACEHOLDER_RE = /\{\{[^}]*\}\}/;
+// ManyChat subscriber IDs are pure numeric strings (typically 7–10 digits).
+const NUMERIC_ID_RE = /^\d{6,}$/;
 
 export function isPlaceholderName(value?: string | null): boolean {
   if (!value) return false;
-  return PLACEHOLDER_RE.test(value.trim());
+  const v = value.trim();
+  return PLACEHOLDER_RE.test(v) || NUMERIC_ID_RE.test(v);
 }
 
 export function safeDisplayName(value?: string | null, fallback = "Instagram prospect"): string {

@@ -305,10 +305,11 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                 onUpdate(c.id, { pending_message: result.pending_message, pending_message_at: new Date().toISOString() });
               } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : "";
+                console.error("[generate-pending] error:", msg, err);
                 if (msg.includes("404") || msg.includes("Not Found")) {
                   setGeneratePendingError("Backend is still deploying — wait 1–2 minutes and try again.");
                 } else {
-                  setGeneratePendingError(`Angellos couldn't generate a reply: ${msg || "unknown error"}`);
+                  setGeneratePendingError(msg || "Unknown error — check the browser console and Railway logs.");
                 }
               }
               setGeneratingPending(false);

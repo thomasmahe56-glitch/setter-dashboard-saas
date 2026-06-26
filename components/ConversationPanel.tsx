@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { ExternalLink, Trash2, ChevronDown, ArrowLeft, Zap, Sparkles, Loader2, Copy, Check } from "lucide-react";
 import { ConversationSummary, Status, api } from "@/lib/api";
-import { getContactLabel, getContactUrl, getConversationChannel, STATUS_LABELS } from "@/lib/utils";
+import { getContactLabel, getContactUrl, getConversationChannel, STATUS_LABELS, safeDisplayName, isPlaceholderName } from "@/lib/utils";
 import { Avatar } from "./Avatar";
 import { ChannelBadge } from "./ChannelBadge";
 import { StatusBadge } from "./StatusBadge";
@@ -49,9 +49,11 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
   const [refineInstruction, setRefineInstruction] = useState("");
   const [refining, setRefining] = useState(false);
   const [refineError, setRefineError] = useState<string | null>(null);
+  const [generatingPending, setGeneratingPending] = useState(false);
+  const [generatePendingError, setGeneratePendingError] = useState<string | null>(null);
 
   const history = Array.isArray(c.history) ? c.history : [];
-  const name = c.display_name || c.username || "?";
+  const name = safeDisplayName(c.display_name || c.username, "?");
   const channel = getConversationChannel(c);
   const contactLabel = getContactLabel(c);
   const profileUrl = getContactUrl(c, "profile");
@@ -68,7 +70,14 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
   async function handleActivate() {
     setActivating(true);
     onUpdate(c.id, { agent_active: true });
-    try { await api.activate(c.id); } catch { onUpdate(c.id, { agent_active: false }); }
+    try {
+      await api.activate(c.id);
+      // Refresh full conversation to surface any generated pending_message
+      const updated = await api.getConversation(c.id);
+      onUpdate(c.id, updated);
+    } catch {
+      onUpdate(c.id, { agent_active: false });
+    }
     setActivating(false);
   }
 
@@ -271,7 +280,50 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
           fontSize: 12, fontWeight: 500, color: "#8e8e8e", flexShrink: 0,
         }}>
           <Sparkles size={14} color="#0095F6" />
-          AI agent active - automatic replies in progress
+          {(c.automation_mode ?? "supervised") === "auto"
+            ? "AI agent active — automatic replies enabled"
+            : (c.automation_mode ?? "supervised") === "supervised"
+            ? "AI agent active — replies require your approval"
+            : "AI agent is paused"}
+        </div>
+      )}
+
+      {/* Generate supervised reply button — shown when active+supervised+no pending+last message is prospect */}
+      {c.agent_active &&
+        (c.automation_mode ?? "supervised") === "supervised" &&
+        !c.pending_message &&
+        history.length > 0 &&
+        history[history.length - 1]?.role === "user" && (
+        <div style={{ margin: "8px 24px 0", flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={async () => {
+              setGeneratingPending(true);
+              setGeneratePendingError(null);
+              try {
+                const result = await api.generatePending(c.id);
+                onUpdate(c.id, { pending_message: result.pending_message, pending_message_at: new Date().toISOString() });
+              } catch {
+                setGeneratePendingError("Angellos couldn't generate a reply. Try again.");
+              }
+              setGeneratingPending(false);
+            }}
+            disabled={generatingPending}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "7px 16px", borderRadius: 9999,
+              background: generatingPending ? "#e0e0e0" : "#7c3aed",
+              border: "none", color: "#fff",
+              fontSize: 12, fontWeight: 600,
+              cursor: generatingPending ? "not-allowed" : "pointer",
+            }}
+          >
+            {generatingPending ? <Loader2 size={13} className="animate-spin" /> : "✨"}
+            {generatingPending ? "Generating..." : "Generate suggested reply"}
+          </button>
+          {generatePendingError && (
+            <div style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>{generatePendingError}</div>
+          )}
         </div>
       )}
 

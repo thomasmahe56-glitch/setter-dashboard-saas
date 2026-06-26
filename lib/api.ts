@@ -294,9 +294,17 @@ export const api = {
       body: JSON.stringify({ instruction, original_message }),
     }),
   activate: (id: string) =>
-    apiFetch(`/conversations/${id}/activate`, { method: "POST" }),
+    apiFetch<{ success: boolean; pending_generated: boolean; pending_message: string | null }>(
+      `/conversations/${id}/activate`,
+      { method: "POST" },
+    ),
   deactivate: (id: string) =>
     apiFetch(`/conversations/${id}/deactivate`, { method: "POST" }),
+  generatePending: (id: string) =>
+    apiFetch<{ success: boolean; pending_message: string }>(
+      `/conversations/${id}/generate-pending`,
+      { method: "POST" },
+    ),
   delete: (id: string) =>
     apiFetch(`/conversations/${id}`, { method: "DELETE" }),
   getDueFollowUps: () => apiFetch<FollowUpDue[]>("/follow-ups/due"),

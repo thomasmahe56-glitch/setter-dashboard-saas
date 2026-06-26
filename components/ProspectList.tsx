@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Search } from "lucide-react";
 import { ConversationSummary, Status } from "@/lib/api";
-import { STATUS_LABELS, timeAgo } from "@/lib/utils";
+import { STATUS_LABELS, timeAgo, safeDisplayName, isPlaceholderName } from "@/lib/utils";
 import { Avatar } from "./Avatar";
 import { ChannelBadge } from "./ChannelBadge";
 import { StatusBadge } from "./StatusBadge";
@@ -22,8 +22,9 @@ export function ProspectList({ conversations, selectedId, onSelect }: Props) {
   const filtered = conversations.filter((c) => {
     const okStatus = filter === "all" || c.status === filter;
     const term = search.toLowerCase();
+    const searchableName = isPlaceholderName(c.display_name) ? "" : (c.display_name || "");
     const okSearch = !term ||
-      c.display_name?.toLowerCase().includes(term) ||
+      searchableName.toLowerCase().includes(term) ||
       c.username?.toLowerCase().includes(term) ||
       c.message?.toLowerCase().includes(term);
     return okStatus && okSearch;
@@ -75,7 +76,7 @@ export function ProspectList({ conversations, selectedId, onSelect }: Props) {
       {/* List */}
       <div style={{ flex: 1, overflowY: "auto", padding: "0 8px 12px" }}>
         {filtered.map((c) => {
-          const name = c.display_name || c.username || "?";
+          const name = safeDisplayName(c.display_name || c.username, "?");
           const selected = selectedId === c.id;
           return (
             <button key={c.id} onClick={() => onSelect(c.id)} style={{

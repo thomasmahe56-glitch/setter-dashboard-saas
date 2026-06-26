@@ -53,6 +53,18 @@ export function avatarBg(name: string): string {
   return AVATAR_BG[Math.abs(h) % AVATAR_BG.length];
 }
 
+const PLACEHOLDER_RE = /\{\{[^}]*\}\}/;
+
+export function isPlaceholderName(value?: string | null): boolean {
+  if (!value) return false;
+  return PLACEHOLDER_RE.test(value.trim());
+}
+
+export function safeDisplayName(value?: string | null, fallback = "Instagram prospect"): string {
+  if (!value || isPlaceholderName(value)) return fallback;
+  return value.trim();
+}
+
 function cleanInstagramHandle(value?: string | null): string {
   if (!value) return "";
   return value
@@ -68,7 +80,8 @@ function isLikelyInstagramHandle(value: string): boolean {
 }
 
 export function getInstagramHandle(conversation: ConversationSummary): string {
-  const displayName = cleanInstagramHandle(conversation.display_name);
+  const rawDisplay = isPlaceholderName(conversation.display_name) ? "" : conversation.display_name;
+  const displayName = cleanInstagramHandle(rawDisplay);
   const username = cleanInstagramHandle(conversation.username);
 
   if (isLikelyInstagramHandle(displayName)) return displayName;

@@ -76,7 +76,7 @@ export function ProspectList({ conversations, selectedId, onSelect }: Props) {
       {/* List */}
       <div style={{ flex: 1, overflowY: "auto", padding: "0 8px 12px" }}>
         {filtered.map((c) => {
-          const name = safeDisplayName(c.display_name || c.username, "?");
+          const name = safeDisplayName(c.display_name || c.username, "Instagram prospect");
           const selected = selectedId === c.id;
           return (
             <button key={c.id} onClick={() => onSelect(c.id)} style={{

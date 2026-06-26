@@ -53,7 +53,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
   const [generatePendingError, setGeneratePendingError] = useState<string | null>(null);
 
   const history = Array.isArray(c.history) ? c.history : [];
-  const name = safeDisplayName(c.display_name || c.username, "?");
+  const name = safeDisplayName(c.display_name || c.username, "Instagram prospect");
   const channel = getConversationChannel(c);
   const contactLabel = getContactLabel(c);
   const profileUrl = getContactUrl(c, "profile");

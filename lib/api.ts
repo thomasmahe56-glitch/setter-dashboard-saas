@@ -1,7 +1,6 @@
-import { config } from "@/lib/config";
 import { getAccessToken } from "@/lib/supabase";
 
-const RAILWAY_URL = config.apiUrl;
+const API_PROXY_URL = "/api/backend";
 
 export class ApiAuthError extends Error {
   status: number;
@@ -30,14 +29,11 @@ async function readErrorDetail(res: Response): Promise<string> {
 }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  if (!RAILWAY_URL) {
-    throw new Error("API_URL_MISSING");
-  }
   const token = await getAccessToken();
   if (!token) {
     throw new Error("NO_SESSION");
   }
-  const res = await fetch(`${RAILWAY_URL}${path}`, {
+  const res = await fetch(`${API_PROXY_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",

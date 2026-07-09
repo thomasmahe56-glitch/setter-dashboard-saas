@@ -109,7 +109,8 @@ export default function RelancePage() {
   const stepCards = [
     { title: "Auto 23h", label: "Automatic", color: "#1D9E75", icon: Send, body: "Short follow-up before the Instagram/ManyChat window closes." },
     { title: "D+3", label: "Assisted", color: "#0095F6", icon: Sparkles, body: "The AI prepares a contextual follow-up to send manually." },
-    { title: "D+10", label: "Assisted", color: "#8b5cf6", icon: Clock3, body: "Final gentle follow-up, more open door than sales pressure." },
+    { title: "D+10", label: "Assisted", color: "#8b5cf6", icon: Clock3, body: "Gentle follow-up, more open door than sales pressure." },
+    { title: "D+30", label: "Assisted", color: "#d946ef", icon: Clock3, body: "Final check-in for cold conversations, one last touch." },
   ];
 
   return (
@@ -126,7 +127,7 @@ export default function RelancePage() {
               <div>
                 <h1 className="app-page-title" style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 4px" }}>Follow-ups</h1>
                 <p style={{ fontSize: 13, color: "#8e8e8e", margin: 0 }}>
-                  Planned sequence: automatic at 23h, then AI-assisted at D+3 and D+10.
+                  Planned sequence: automatic at 23h, then AI-assisted at D+3, D+10 and D+30.
                 </p>
               </div>
               <div style={{

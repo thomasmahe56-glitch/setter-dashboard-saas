@@ -95,7 +95,7 @@ export interface FollowUpDue {
   message: string;
   status: Status;
   agent_active: boolean;
-  stage: "auto_23h" | "j3" | "j10";
+  stage: "auto_23h" | "j3" | "j10" | "j30";
   stage_label: string;
   mode: "auto" | "manual";
   hours_since_user: number;

@@ -30,6 +30,19 @@ export const STATUS_BAR_COLOR: Record<Status, string> = {
   signe: "#22c55e",
 };
 
+export const FALLBACK_STATUS_STYLE = { color: "#4b5563", bg: "#f3f4f6", border: "#e5e7eb" };
+
+export function getStatusLabel(status?: string | null): string {
+  if (status && status in STATUS_LABELS) return STATUS_LABELS[status as Status];
+  if (status === "pending_delivery") return "Pending delivery";
+  return status ? status.replace(/_/g, " ") : "Unknown";
+}
+
+export function getStatusStyle(status?: string | null) {
+  if (status && status in STATUS_STYLE) return STATUS_STYLE[status as Status];
+  return FALLBACK_STATUS_STYLE;
+}
+
 export function getInitials(name: string): string {
   return name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
 }

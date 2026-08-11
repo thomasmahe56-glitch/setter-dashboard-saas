@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Search } from "lucide-react";
 import { ConversationSummary, Status } from "@/lib/api";
-import { STATUS_LABELS, timeAgo, safeDisplayName, isPlaceholderName } from "@/lib/utils";
+import { getStatusLabel, timeAgo, safeDisplayName, isPlaceholderName } from "@/lib/utils";
 import { Avatar } from "./Avatar";
 import { ChannelBadge } from "./ChannelBadge";
 import { StatusBadge } from "./StatusBadge";
@@ -67,7 +67,7 @@ export function ProspectList({ conversations, selectedId, onSelect }: Props) {
               color: active ? "#fff" : "#8e8e8e",
               cursor: "pointer", transition: "background 0.15s, color 0.15s",
             }}>
-              {s === "all" ? "All" : STATUS_LABELS[s as Status]}
+              {s === "all" ? "All" : getStatusLabel(s)}
             </button>
           );
         })}

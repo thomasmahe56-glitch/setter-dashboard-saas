@@ -1,8 +1,8 @@
 import { Status } from "@/lib/api";
-import { STATUS_LABELS, STATUS_STYLE } from "@/lib/utils";
+import { getStatusLabel, getStatusStyle } from "@/lib/utils";
 
 export function StatusBadge({ status }: { status: Status }) {
-  const s = STATUS_STYLE[status];
+  const s = getStatusStyle(status);
   return (
     <span style={{
       display: "inline-flex", alignItems: "center",
@@ -11,7 +11,7 @@ export function StatusBadge({ status }: { status: Status }) {
       color: s.color, background: s.bg,
       whiteSpace: "nowrap",
     }}>
-      {STATUS_LABELS[status]}
+      {getStatusLabel(status)}
     </span>
   );
 }

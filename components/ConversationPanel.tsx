@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { ExternalLink, Trash2, ChevronDown, ArrowLeft, Zap, Sparkles, Loader2, Copy, Check } from "lucide-react";
 import { ConversationSummary, Status, api } from "@/lib/api";
-import { getContactLabel, getContactUrl, getConversationChannel, STATUS_LABELS, safeDisplayName, isPlaceholderName } from "@/lib/utils";
+import { getContactLabel, getContactUrl, getConversationChannel, getStatusLabel, safeDisplayName, isPlaceholderName } from "@/lib/utils";
 import { Avatar } from "./Avatar";
 import { ChannelBadge } from "./ChannelBadge";
 import { StatusBadge } from "./StatusBadge";
@@ -169,7 +169,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
               border: "1px solid #e0e0e0", background: "#fff",
               fontSize: 12, fontWeight: 500, color: "#262626", cursor: "pointer",
             }}>
-              {STATUS_LABELS[c.status]}
+              {getStatusLabel(c.status)}
               <ChevronDown size={12} color="#8e8e8e" />
             </button>
             {statusOpen && (
@@ -188,7 +188,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                     color: c.status === s ? "#0095F6" : "#262626",
                     cursor: "pointer",
                   }}>
-                    {STATUS_LABELS[s]}
+                    {getStatusLabel(s)}
                   </button>
                 ))}
               </div>

@@ -104,6 +104,19 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
 export function useI18n() {
   const context = useContext(I18nContext);
-  if (!context) throw new Error("useI18n must be used inside I18nProvider");
-  return context;
+  if (context) return context;
+
+  // Defensive fallback for production auth/navigation edge cases where a cached
+  // route can render before the root provider is hydrated. Missing translations
+  // must never make the dashboard unusable.
+  return {
+    language: "en" as DashboardLanguage,
+    setLanguage: (nextLanguage: DashboardLanguage) => {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(STORAGE_KEY, nextLanguage);
+        document.documentElement.lang = nextLanguage;
+      }
+    },
+    t: (_key: string, fallback: string) => fallback,
+  };
 }

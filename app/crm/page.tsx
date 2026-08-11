@@ -6,6 +6,7 @@ import { api, Conversation, ConversationSummary } from "@/lib/api";
 import { NavBar } from "@/components/NavBar";
 import { ProspectList } from "@/components/ProspectList";
 import { ConversationPanel } from "@/components/ConversationPanel";
+import { useI18n } from "@/lib/i18n";
 
 function CRMInitialSkeleton() {
   return (
@@ -36,6 +37,7 @@ function CRMInitialSkeleton() {
 }
 
 export default function CRMPage() {
+  const { t } = useI18n();
   const { conversations, setConversations, loading, error, lastRefresh, refresh } = useConversations();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<Conversation | null>(null);
@@ -67,14 +69,14 @@ export default function CRMPage() {
         if (!cancelled) setSelectedDetail(data);
       })
       .catch(() => {
-        if (!cancelled) setDetailError("Unable to load conversation");
+        if (!cancelled) setDetailError(t("crm.loadConversationError", "Unable to load conversation"));
       })
       .finally(() => {
         if (!cancelled) setDetailLoading(false);
       });
 
     return () => { cancelled = true; };
-  }, [selectedId]);
+  }, [selectedId, t]);
 
   const selectedSummary = conversations.find((c) => c.id === selectedId) || null;
   const selected = selectedDetail || selectedSummary;
@@ -118,7 +120,7 @@ export default function CRMPage() {
               ) : (
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#8e8e8e", fontSize: 13, gap: 8 }}>
                   <span style={{ fontSize: 32 }}>💬</span>
-                  Select a prospect to view the conversation
+                  {t("crm.selectProspect", "Select a prospect to view the conversation")}
                 </div>
               )}
             </div>

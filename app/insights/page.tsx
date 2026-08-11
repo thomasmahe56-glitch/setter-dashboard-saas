@@ -24,6 +24,7 @@ interface PreviewResult { prompt_proposed: string; diff: PreviewDiffLine[] }
 import { config as appConfig } from "@/lib/config";
 import { getAccessToken } from "@/lib/supabase";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n";
 const RAILWAY_URL = appConfig.apiUrl;
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -585,6 +586,7 @@ function Skeleton() {
 }
 
 export default function InsightsPage() {
+  const { t } = useI18n();
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -664,8 +666,8 @@ export default function InsightsPage() {
           {/* Header */}
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 20 }}>
             <div>
-              <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 4px" }}>Insights</h1>
-              <p style={{ fontSize: 13, color: "#8e8e8e", margin: 0 }}>Automatic conversation analysis to improve the agent</p>
+              <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 4px" }}>{t("insights.title", "Insights")}</h1>
+              <p style={{ fontSize: 13, color: "#8e8e8e", margin: 0 }}>{t("insights.subtitle", "Automatic conversation analysis to improve the agent")}</p>
             </div>
             <button
               type="button"
@@ -681,8 +683,8 @@ export default function InsightsPage() {
               }}
             >
               {analysing
-                ? <><Loader2 size={14} className="animate-spin" />Analysis in progress...</>
-                : <><Zap size={14} />Run analysis</>
+                ? <><Loader2 size={14} className="animate-spin" />{t("insights.running", "Analysis in progress...")}</>
+                : <><Zap size={14} />{t("insights.run", "Run analysis")}</>
               }
             </button>
           </div>
@@ -702,8 +704,8 @@ export default function InsightsPage() {
               textAlign: "center", color: "#8e8e8e", fontSize: 13,
             }}>
               <span style={{ fontSize: 36, display: "block", marginBottom: 12 }}>🔍</span>
-              No analysis yet.<br />
-              Run an analysis to get insights from your conversations.
+              {t("insights.empty", "No analysis yet.")}<br />
+              {t("insights.emptyHelp", "Run an analysis to get insights from your conversations.")}
             </div>
           ) : (
             insights.map((insight) => (

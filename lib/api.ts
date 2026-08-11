@@ -118,6 +118,7 @@ export interface FollowUpSendResult {
 }
 
 export interface TrainingProfileInput {
+  language: "en" | "fr" | string;
   business_name: string;
   coach_name: string;
   niche: string;

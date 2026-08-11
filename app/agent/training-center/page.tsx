@@ -36,6 +36,7 @@ import {
   TrainingProfileInput,
 } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n";
 import {
   buildTrainingChecklist,
   calculateTrainingProgress,
@@ -54,6 +55,7 @@ import {
 } from "@/lib/training-center/utils";
 
 const EMPTY_PROFILE: TrainingProfileInput = {
+  language: "en",
   business_name: "",
   coach_name: "",
   niche: "",
@@ -226,6 +228,7 @@ const KNOWLEDGE_PREVIEW_SECTIONS = [
 ];
 
 export default function TrainingCenterPage() {
+  const { t } = useI18n();
   const [activeStep, setActiveStep] = useState<StepId>("business");
   const [developerMode, setDeveloperMode] = useState(false);
   const [profile, setProfile] = useState<TrainingProfileInput>(EMPTY_PROFILE);
@@ -874,6 +877,7 @@ export default function TrainingCenterPage() {
                 disabled={actionDisabled}
                 saving={savingProfile}
                 onSave={handleSaveProfile}
+                t={t}
               />
             )}
 
@@ -1049,11 +1053,12 @@ function AutosaveIndicator({ status }: { status: AutosaveStatus }) {
 
 function BusinessStep({
   profile,
+  onChange,
   autosaveStatus,
   disabled,
   saving,
-  onChange,
   onSave,
+  t,
 }: {
   profile: TrainingProfileInput;
   autosaveStatus: AutosaveStatus;
@@ -1061,48 +1066,56 @@ function BusinessStep({
   saving: boolean;
   onChange: (key: keyof TrainingProfileInput, value: string | string[]) => void;
   onSave: () => void;
+  t: (key: string, fallback: string) => string;
 }) {
   return (
     <div>
       <SectionHeader
-        eyebrow="Your offer"
-        title="Teach Angellos what you sell"
-        description="Give Angellos the basics it needs to understand your offer and the next step you want prospects to take."
+        eyebrow={t("training.offer.eyebrow", "Your offer")}
+        title={t("training.offer.title", "Teach Angellos what you sell")}
+        description={t("training.offer.description", "Give Angellos the basics it needs to understand your offer and the next step you want prospects to take.")}
         action={
           <div style={styles.headerActions}>
             <AutosaveIndicator status={autosaveStatus} />
             <button type="button" onClick={onSave} disabled={disabled} style={primaryButton(disabled)}>
               {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-              Save offer
+              {t("training.offer.save", "Save offer")}
             </button>
           </div>
         }
       />
 
       <div style={styles.fieldGrid}>
-        <Field label="Business name" value={profile.business_name} onChange={(v) => onChange("business_name", v)} placeholder="Example: TrainToRehab, Studio Fit Lead, Rehab Coach Academy" />
-        <Field label="Coach / founder" value={profile.coach_name} onChange={(v) => onChange("coach_name", v)} placeholder="Example: Thomas, head coach who replies to prospects" />
-        <Field label="Niche" value={profile.niche} onChange={(v) => onChange("niche", v)} placeholder="Example: fitness coaches who want to turn Instagram leads into qualified calls." />
-        <Field label="Offer name" value={profile.offer_name} onChange={(v) => onChange("offer_name", v)} placeholder="Example: 8-week coaching program to structure Instagram acquisition and closing." />
+        <label style={styles.selectLabel}>
+          {t("training.language", "Reply language")}
+          <select value={profile.language || "en"} onChange={(event) => onChange("language", event.target.value)} style={styles.selectInput}>
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+          </select>
+        </label>
+        <Field label={t("training.businessName", "Business name")} value={profile.business_name} onChange={(v) => onChange("business_name", v)} placeholder="Example: TrainToRehab, Studio Fit Lead, Rehab Coach Academy" />
+        <Field label={t("training.coachFounder", "Coach / founder")} value={profile.coach_name} onChange={(v) => onChange("coach_name", v)} placeholder="Example: Thomas, head coach who replies to prospects" />
+        <Field label={t("training.niche", "Niche")} value={profile.niche} onChange={(v) => onChange("niche", v)} placeholder="Example: fitness coaches who want to turn Instagram leads into qualified calls." />
+        <Field label={t("training.offerName", "Offer name")} value={profile.offer_name} onChange={(v) => onChange("offer_name", v)} placeholder="Example: 8-week coaching program to structure Instagram acquisition and closing." />
       </div>
 
       <div style={styles.focusArea}>
         <TextField
-          label="Offer promise"
+          label={t("training.offerPromise", "Offer promise")}
           value={profile.offer_promise}
           rows={4}
           onChange={(v) => onChange("offer_promise", v)}
           placeholder="Example: go from scattered Instagram conversations to 5-10 qualified calls per week without spending 2h/day in DMs."
         />
         <TextField
-          label="Format / coaching"
+          label={t("training.offerFormat", "Format / coaching")}
           value={profile.offer_format}
           rows={4}
           onChange={(v) => onChange("offer_format", v)}
           placeholder="Example: 8 weeks, 1 call per week, WhatsApp support, DM scripts, tracking dashboard, and weekly feedback."
         />
         <TextField
-          label="Price / terms"
+          label={t("training.priceTerms", "Price / terms")}
           value={profile.price}
           rows={3}
           onChange={(v) => onChange("price", v)}
@@ -1111,14 +1124,14 @@ function BusinessStep({
       </div>
 
       <details style={styles.details}>
-        <summary style={styles.summary}>Advanced fields</summary>
+        <summary style={styles.summary}>{t("training.advancedFields", "Advanced fields")}</summary>
         <div style={styles.advancedGrid}>
-          <TextField label="Proof points" value={listToText(profile.proof_points)} rows={4} onChange={(v) => onChange("proof_points", textToList(v))} placeholder="Example: +42 qualified calls in 30 days for one coach. One proof point per line." />
-          <TextField label="Tone to respect" value={listToText(profile.tone_rules)} rows={4} onChange={(v) => onChange("tone_rules", textToList(v))} placeholder="One tone rule per line." />
-          <TextField label="Do not say" value={listToText(profile.forbidden_phrases)} rows={4} onChange={(v) => onChange("forbidden_phrases", textToList(v))} placeholder="Example: guaranteed promises, aggressive pitch, guilt-based follow-ups. One phrase per line." />
-          <Field label="Call link" value={profile.calendly_url} onChange={(v) => onChange("calendly_url", v)} placeholder="https://calendly.com/..." />
-          <Field label="Sales page link" value={profile.sales_page_url} onChange={(v) => onChange("sales_page_url", v)} placeholder="https://..." />
-          <TextField label="Free notes" value={profile.raw_notes} rows={5} onChange={(v) => onChange("raw_notes", v)} placeholder="Useful context, subtleties, edge cases." />
+          <TextField label={t("training.proofPoints", "Proof points")} value={listToText(profile.proof_points)} rows={4} onChange={(v) => onChange("proof_points", textToList(v))} placeholder="Example: +42 qualified calls in 30 days for one coach. One proof point per line." />
+          <TextField label={t("training.tone", "Tone to respect")} value={listToText(profile.tone_rules)} rows={4} onChange={(v) => onChange("tone_rules", textToList(v))} placeholder="One tone rule per line." />
+          <TextField label={t("training.doNotSay", "Do not say")} value={listToText(profile.forbidden_phrases)} rows={4} onChange={(v) => onChange("forbidden_phrases", textToList(v))} placeholder="Example: guaranteed promises, aggressive pitch, guilt-based follow-ups. One phrase per line." />
+          <Field label={t("training.callLink", "Call link")} value={profile.calendly_url} onChange={(v) => onChange("calendly_url", v)} placeholder="https://calendly.com/..." />
+          <Field label={t("training.salesPageLink", "Sales page link")} value={profile.sales_page_url} onChange={(v) => onChange("sales_page_url", v)} placeholder="https://..." />
+          <TextField label={t("training.freeNotes", "Free notes")} value={profile.raw_notes} rows={5} onChange={(v) => onChange("raw_notes", v)} placeholder="Useful context, subtleties, edge cases." />
         </div>
       </details>
     </div>
@@ -2880,6 +2893,25 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 750,
   },
   input: {
+    width: "100%",
+    border: "1px solid #dfe5ee",
+    borderRadius: 8,
+    background: "#fff",
+    color: "#111827",
+    fontSize: 13,
+    padding: "10px 12px",
+    outline: "none",
+    fontFamily: "inherit",
+  },
+  selectLabel: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    color: "#475569",
+    fontSize: 12,
+    fontWeight: 750,
+  },
+  selectInput: {
     width: "100%",
     border: "1px solid #dfe5ee",
     borderRadius: 8,

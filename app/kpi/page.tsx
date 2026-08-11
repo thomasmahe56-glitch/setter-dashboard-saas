@@ -8,6 +8,7 @@ import { Status } from "@/lib/api";
 import { getInstagramHandle, STATUS_LABELS, STATUS_BAR_COLOR, timeAgo } from "@/lib/utils";
 import { Avatar } from "@/components/Avatar";
 import { StatusBadge } from "@/components/StatusBadge";
+import { useI18n } from "@/lib/i18n";
 
 const FUNNEL: { status: Status; icon: React.ElementType }[] = [
   { status: "nouveau", icon: Users },
@@ -39,6 +40,7 @@ function KPISkeleton() {
 }
 
 export default function KPIPage() {
+  const { t } = useI18n();
   const { conversations, loading, lastRefresh, refresh } = useConversations();
 
   useEffect(() => {
@@ -71,8 +73,8 @@ export default function KPIPage() {
         <div className="app-scroll-page">
           <div className="app-page-inner kpi-inner">
 
-            <h1 className="app-page-title" style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 4px" }}>Performance</h1>
-            <p style={{ fontSize: 13, color: "#8e8e8e", margin: "0 0 20px" }}>Pipeline overview</p>
+            <h1 className="app-page-title" style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 4px" }}>{t("kpi.title", "Performance")}</h1>
+            <p style={{ fontSize: 13, color: "#8e8e8e", margin: "0 0 20px" }}>{t("kpi.subtitle", "Pipeline overview")}</p>
 
             {/* KPI Cards */}
             <div className="kpi-card-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 16 }}>
@@ -102,14 +104,14 @@ export default function KPIPage() {
             <div className="kpi-funnel-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, marginBottom: 16 }}>
               <div style={card}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0a0a0a", margin: 0 }}>Conversion funnel</h2>
+                  <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0a0a0a", margin: 0 }}>{t("kpi.funnel", "Conversion funnel")}</h2>
                   {counts["signe"] > 0 && total > 0 && (
                     <span style={{ fontSize: 12, color: "#8e8e8e", display: "flex", alignItems: "center", gap: 4 }}>
                       <TrendingUp size={12} /> {Math.round((counts["signe"] / total) * 100)}% conv.
                     </span>
                   )}
                 </div>
-                <p style={{ fontSize: 12, color: "#8e8e8e", margin: "0 0 16px" }}>From first message to signed contract</p>
+                <p style={{ fontSize: 12, color: "#8e8e8e", margin: "0 0 16px" }}>{t("kpi.funnelHelp", "From first message to signed contract")}</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {FUNNEL.map(({ status }) => {
                     const count = counts[status];
@@ -131,15 +133,15 @@ export default function KPIPage() {
               </div>
 
               <div style={card}>
-                <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0a0a0a", margin: "0 0 16px" }}>AI agent</h2>
+                <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0a0a0a", margin: "0 0 16px" }}>{t("kpi.aiAgent", "AI agent")}</h2>
                 <p style={{ fontSize: 36, fontWeight: 800, color: "#0095F6", margin: "0 0 2px" }}>
                   {conversations.filter((c) => c.agent_active).length}
                 </p>
-                <p style={{ fontSize: 12, color: "#8e8e8e", margin: "0 0 16px" }}>active agents</p>
+                <p style={{ fontSize: 12, color: "#8e8e8e", margin: "0 0 16px" }}>{t("kpi.activeAgents", "active agents")}</p>
                 {[
-                  { label: "Total prospects", value: total },
-                  { label: "Signed", value: counts["signe"] },
-                  { label: "Conv. rate", value: `${total > 0 ? Math.round((counts["signe"] / total) * 100) : 0}%` },
+                  { label: t("kpi.totalProspects", "Total prospects"), value: total },
+                  { label: t("kpi.signed", "Signed"), value: counts["signe"] },
+                  { label: t("kpi.conversionRate", "Conv. rate"), value: `${total > 0 ? Math.round((counts["signe"] / total) * 100) : 0}%` },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid #f0f0f0", fontSize: 13 }}>
                     <span style={{ color: "#8e8e8e" }}>{label}</span>
@@ -151,7 +153,7 @@ export default function KPIPage() {
 
             {/* Recent */}
             <div style={card}>
-              <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0a0a0a", margin: "0 0 16px" }}>Recent activity</h2>
+              <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0a0a0a", margin: "0 0 16px" }}>{t("kpi.recentActivity", "Recent activity")}</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {recent.map((c) => {
                   const instagramHandle = getInstagramHandle(c);

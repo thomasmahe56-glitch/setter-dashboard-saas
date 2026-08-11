@@ -7,6 +7,7 @@ import { Avatar } from "@/components/Avatar";
 import { StatusBadge } from "@/components/StatusBadge";
 import { api, ApiAuthError, FollowUpDue, FollowUpPreview } from "@/lib/api";
 import { getInstagramHandle } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 function RelanceSkeleton() {
   return (
@@ -24,6 +25,7 @@ function RelanceSkeleton() {
 }
 
 export default function RelancePage() {
+  const { t } = useI18n();
   const [followUps, setFollowUps] = useState<FollowUpDue[]>([]);
   const [previews, setPreviews] = useState<Record<string, FollowUpPreview>>({});
   const [loading, setLoading] = useState(true);
@@ -125,9 +127,9 @@ export default function RelancePage() {
           <div className="app-page-inner relance-inner">
             <div className="app-page-heading" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
               <div>
-                <h1 className="app-page-title" style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 4px" }}>Follow-ups</h1>
+                <h1 className="app-page-title" style={{ fontSize: 24, fontWeight: 800, color: "#0a0a0a", margin: "0 0 4px" }}>{t("relance.title", "Follow-ups")}</h1>
                 <p style={{ fontSize: 13, color: "#8e8e8e", margin: 0 }}>
-                  Planned sequence: automatic at 23h, then AI-assisted at D+3, D+10 and D+30.
+                  {t("relance.subtitle", "Planned sequence: automatic at 23h, then AI-assisted at D+3, D+10 and D+30.")}
                 </p>
               </div>
               <div style={{
@@ -137,7 +139,7 @@ export default function RelancePage() {
                 fontSize: 12, fontWeight: 700, flexShrink: 0,
               }}>
                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e" }} />
-                Meta compliant mode
+                {t("relance.compliance", "Meta compliant mode")}
               </div>
             </div>
 
@@ -161,9 +163,9 @@ export default function RelancePage() {
             <div style={{ ...card, marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 14 }}>
                 <div>
-                  <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0a0a0a", margin: "0 0 3px" }}>Due follow-ups</h2>
+                  <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0a0a0a", margin: "0 0 3px" }}>{t("relance.due", "Due follow-ups")}</h2>
                   <p style={{ fontSize: 12, color: "#8e8e8e", margin: 0 }}>
-                    Calculated from message history. Older conversations without timestamps use their creation date.
+                    {t("relance.dueHelp", "Calculated from message history. Older conversations without timestamps use their creation date.")}
                   </p>
                 </div>
                 <span style={{ fontSize: 12, fontWeight: 700, color: "#8e8e8e", background: "#f5f5f5", padding: "4px 10px", borderRadius: 9999 }}>
@@ -174,7 +176,7 @@ export default function RelancePage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {followUps.length === 0 ? (
                   <div style={{ padding: "30px 12px", textAlign: "center", color: "#8e8e8e", fontSize: 13 }}>
-                    No follow-ups due right now.
+                    {t("relance.empty", "No follow-ups due right now.")}
                   </div>
                 ) : followUps.map((item) => {
                   const handle = getInstagramHandle(item);

@@ -16,13 +16,14 @@ import {
 import { config } from "@/lib/config";
 import { AngelosAvatar } from "@/components/AngelosAvatar";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n";
 
 const TABS = [
-  { href: "/crm", label: "CRM", icon: MessageCircle },
-  { href: "/relance", label: "Follow-ups", icon: Clock3 },
-  { href: "/kpi", label: "KPIs", icon: BarChart3 },
-  { href: "/insights", label: "Insights", icon: Lightbulb },
-  { href: "/agent/training-center", label: "Training", icon: GraduationCap },
+  { key: "crm", href: "/crm", label: "CRM", icon: MessageCircle },
+  { key: "followUps", href: "/relance", label: "Follow-ups", icon: Clock3 },
+  { key: "kpis", href: "/kpi", label: "KPIs", icon: BarChart3 },
+  { key: "insights", href: "/insights", label: "Insights", icon: Lightbulb },
+  { key: "training", href: "/agent/training-center", label: "Training", icon: GraduationCap },
 ];
 
 interface NavBarProps {
@@ -33,6 +34,8 @@ interface NavBarProps {
 export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
+  const { language, setLanguage, t } = useI18n();
+  const tabs = TABS.map((tab) => ({ ...tab, label: t(`nav.${tab.key}`, tab.label) }));
 
   async function handleLogout() {
     await createClient().auth.signOut();
@@ -80,8 +83,8 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
         className="app-nav-toggle"
         type="button"
         onClick={() => setOpen((value) => !value)}
-        title={open ? "Close menu" : "Open menu"}
-        aria-label={open ? "Close menu" : "Open menu"}
+          title={open ? t("nav.closeMenu", "Close menu") : t("nav.openMenu", "Open menu")}
+        aria-label={open ? t("nav.closeMenu", "Close menu") : t("nav.openMenu", "Open menu")}
         style={{
           height: 40,
           width: 40,
@@ -101,7 +104,7 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
       </button>
 
       <nav className="app-nav-links" style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 10px" }}>
-        {TABS.map(({ href, label, icon: Icon }) => {
+        {tabs.map(({ href, label, icon: Icon }) => {
           const active = path === href || (href !== "/agent" && path.startsWith(href));
           return (
             <Link
@@ -138,15 +141,41 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
       <div className="app-nav-actions" style={{ padding: "0 10px 14px", display: "flex", flexDirection: "column", gap: 4 }}>
         {lastRefresh && open && (
           <div style={{ fontSize: 12, color: "#8e8e8e", padding: "0 12px 6px" }}>
-            Updated {lastRefresh.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+            {t("nav.updated", "Updated")} {lastRefresh.toLocaleTimeString(language === "fr" ? "fr-FR" : "en-US", { hour: "2-digit", minute: "2-digit" })}
           </div>
         )}
+        <label
+          title={t("nav.language", "Language")}
+          style={{
+            height: 44,
+            borderRadius: 10,
+            color: "#7a7a7a",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: open ? "space-between" : "center",
+            gap: 8,
+            padding: open ? "0 14px" : 0,
+            fontSize: 12,
+            fontWeight: 700,
+          }}
+        >
+          {open && <span>{t("nav.language", "Language")}</span>}
+          <select
+            aria-label={t("nav.language", "Language")}
+            value={language}
+            onChange={(event) => setLanguage(event.target.value === "fr" ? "fr" : "en")}
+            style={{ border: "1px solid #eeeeee", borderRadius: 8, background: "#fff", color: "#262626", padding: "5px 7px", fontSize: 12, fontWeight: 700 }}
+          >
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+          </select>
+        </label>
         {onRefresh && (
           <button
             type="button"
             onClick={onRefresh}
-            title="Refresh"
-            aria-label="Refresh"
+            title={t("nav.refresh", "Refresh")}
+            aria-label={t("nav.refresh", "Refresh")}
             style={{
               height: 44,
               borderRadius: 10,
@@ -164,14 +193,14 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
             }}
           >
             <RefreshCw size={18} />
-            {open && <span>Refresh</span>}
+            {open && <span>{t("nav.refresh", "Refresh")}</span>}
           </button>
         )}
         <button
           type="button"
           onClick={handleLogout}
-          title="Log out"
-          aria-label="Log out"
+          title={t("nav.logout", "Log out")}
+          aria-label={t("nav.logout", "Log out")}
           style={{
             height: 44,
             borderRadius: 10,
@@ -189,7 +218,7 @@ export function NavBar({ lastRefresh, onRefresh }: NavBarProps) {
           }}
         >
           <LogOut size={18} />
-          {open && <span>Log out</span>}
+          {open && <span>{t("nav.logout", "Log out")}</span>}
         </button>
       </div>
     </aside>

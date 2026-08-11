@@ -3,7 +3,7 @@ const DASHBOARD_SECRET = process.env.DASHBOARD_SECRET || "";
 const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-const FORWARDED_REQUEST_HEADERS = new Set(["content-type"]);
+const FORWARDED_REQUEST_HEADERS = new Set(["content-type", "authorization"]);
 
 function buildTargetUrl(path: string[], search: string) {
   if (!API_BASE_URL) {

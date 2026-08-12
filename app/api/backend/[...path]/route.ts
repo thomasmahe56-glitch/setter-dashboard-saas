@@ -1,5 +1,10 @@
 const DEFAULT_API_BASE_URL = "https://setter-agent-saas-production.up.railway.app";
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL).replace(/\/$/, "");
+const configuredApiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+const API_BASE_URL = (
+  configuredApiBaseUrl.includes("setter-agent-production-f290.up.railway.app")
+    ? DEFAULT_API_BASE_URL
+    : configuredApiBaseUrl || DEFAULT_API_BASE_URL
+).replace(/\/$/, "");
 const DASHBOARD_SECRET = process.env.DASHBOARD_SECRET || "";
 const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";

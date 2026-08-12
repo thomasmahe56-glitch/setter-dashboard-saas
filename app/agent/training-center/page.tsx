@@ -872,6 +872,7 @@ export default function TrainingCenterPage() {
             {activeStep === "business" && (
               <BusinessStep
                 profile={profile}
+                rules={rules}
                 onChange={updateProfile}
                 autosaveStatus={autosave.profile.status}
                 disabled={actionDisabled}
@@ -1053,6 +1054,7 @@ function AutosaveIndicator({ status }: { status: AutosaveStatus }) {
 
 function BusinessStep({
   profile,
+  rules,
   onChange,
   autosaveStatus,
   disabled,
@@ -1061,6 +1063,7 @@ function BusinessStep({
   t,
 }: {
   profile: TrainingProfileInput;
+  rules: AgentSalesRules;
   autosaveStatus: AutosaveStatus;
   disabled: boolean;
   saving: boolean;
@@ -1068,6 +1071,8 @@ function BusinessStep({
   onSave: () => void;
   t: (key: string, fallback: string) => string;
 }) {
+  const learnedDoNotSayRules = getLearnedDoNotSayRules(profile, rules);
+
   return (
     <div>
       <SectionHeader
@@ -1128,13 +1133,36 @@ function BusinessStep({
         <div style={styles.advancedGrid}>
           <TextField label={t("training.proofPoints", "Proof points")} value={listToText(profile.proof_points)} rows={4} onChange={(v) => onChange("proof_points", textToList(v))} placeholder="Example: +42 qualified calls in 30 days for one coach. One proof point per line." />
           <TextField label={t("training.tone", "Tone to respect")} value={listToText(profile.tone_rules)} rows={4} onChange={(v) => onChange("tone_rules", textToList(v))} placeholder="One tone rule per line." />
-          <TextField label={t("training.doNotSay", "Do not say")} value={listToText(profile.forbidden_phrases)} rows={4} onChange={(v) => onChange("forbidden_phrases", textToList(v))} placeholder="Example: guaranteed promises, aggressive pitch, guilt-based follow-ups. One phrase per line." />
+          <div style={styles.doNotSayBlock}>
+            <TextField label={t("training.doNotSay", "Do not say")} value={listToText(profile.forbidden_phrases)} rows={4} onChange={(v) => onChange("forbidden_phrases", textToList(v))} placeholder="Example: guaranteed promises, aggressive pitch, guilt-based follow-ups. One phrase per line." />
+            <LearnedRulesList rules={learnedDoNotSayRules} />
+          </div>
           <Field label={t("training.callLink", "Call link")} value={profile.calendly_url} onChange={(v) => onChange("calendly_url", v)} placeholder="https://calendly.com/..." />
           <Field label={t("training.salesPageLink", "Sales page link")} value={profile.sales_page_url} onChange={(v) => onChange("sales_page_url", v)} placeholder="https://..." />
           <TextField label={t("training.freeNotes", "Free notes")} value={profile.raw_notes} rows={5} onChange={(v) => onChange("raw_notes", v)} placeholder="Useful context, subtleties, edge cases." />
         </div>
       </details>
     </div>
+  );
+}
+
+function LearnedRulesList({ rules }: { rules: string[] }) {
+  if (rules.length === 0) {
+    return <p style={styles.learnedRulesEmpty}>No automatically learned rule yet.</p>;
+  }
+
+  return (
+    <section style={styles.learnedRulesPanel}>
+      <div style={styles.learnedRulesHeader}>
+        <span>Automatically learned rules</span>
+        <span style={styles.learnedBadge}>learned</span>
+      </div>
+      <ul style={styles.learnedRulesList}>
+        {rules.map((rule) => (
+          <li key={rule} style={styles.learnedRuleItem}>{rule}</li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -2160,10 +2188,12 @@ function PreviewPanel({
     ...getStringList(avatar.objections).slice(0, 2),
   ].slice(0, 4);
   const topRules = [
-    ...conversationGuidance,
-    ...getStringList(rules.qualification_questions).slice(0, 2),
-    ...getStringList(rules.call_offer_conditions).slice(0, 2),
+    ...conversationGuidance.slice(0, 2),
+    ...getStringList(rules.do_not_say).slice(0, 1),
+    ...getStringList(rules.qualification_questions).slice(0, 1),
+    ...getStringList(rules.call_offer_conditions).slice(0, 1),
   ].slice(0, 4);
+  const forbiddenTopics = getVisibleForbiddenTopics(profile, rules).slice(0, 4);
   const salesProcess = typeof profile.sales_process === "string" ? profile.sales_process : "";
   const nextStep = typeof profile.next_step === "string" ? profile.next_step : "";
   const voiceProfile = typeof profile.voice_profile === "string" ? profile.voice_profile : "";
@@ -2216,15 +2246,28 @@ function PreviewPanel({
         <PreviewShortText value={voiceProfile || getStringList(profile.tone_rules).slice(0, 2).join(" ")} empty="Voice notes will appear here." />
       </PreviewSection>
 
-      <PreviewSection title="Forbidden topics" onEdit={() => onEdit("knowledge")}>
-        {getStringList(profile.forbidden_phrases).length > 0 ? (
-          <MiniList items={getStringList(profile.forbidden_phrases).slice(0, 3)} />
+      <PreviewSection title="Forbidden topics" onEdit={() => onEdit("business")}>
+        {forbiddenTopics.length > 0 ? (
+          <MiniList items={forbiddenTopics} />
         ) : (
           <p style={styles.emptyText}>Words and claims to avoid will appear here.</p>
         )}
       </PreviewSection>
     </div>
   );
+}
+
+function normalizeRule(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function getLearnedDoNotSayRules(profile: TrainingProfileInput, rules: AgentSalesRules): string[] {
+  const manual = new Set(getStringList(profile.forbidden_phrases).map(normalizeRule));
+  return getStringList(rules.do_not_say).filter((rule) => !manual.has(normalizeRule(rule)));
+}
+
+function getVisibleForbiddenTopics(profile: TrainingProfileInput, rules: AgentSalesRules): string[] {
+  return [...getStringList(profile.forbidden_phrases), ...getLearnedDoNotSayRules(profile, rules)];
 }
 
 function PreviewSection({ title, children, onEdit }: { title: string; children: React.ReactNode; onEdit?: () => void }) {
@@ -3073,6 +3116,59 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#fbfdff",
     display: "grid",
     gap: 9,
+  },
+  doNotSayBlock: {
+    display: "grid",
+    gap: 9,
+  },
+  learnedRulesPanel: {
+    border: "1px solid #dbeafe",
+    borderRadius: 8,
+    background: "#f8fbff",
+    padding: 10,
+    display: "grid",
+    gap: 8,
+  },
+  learnedRulesHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    color: "#0f172a",
+    fontSize: 12,
+    fontWeight: 850,
+  },
+  learnedBadge: {
+    borderRadius: 999,
+    background: "#dcfce7",
+    color: "#15803d",
+    padding: "3px 7px",
+    fontSize: 10,
+    fontWeight: 850,
+    textTransform: "uppercase",
+    whiteSpace: "nowrap",
+  },
+  learnedRulesList: {
+    listStyle: "none",
+    padding: 0,
+    margin: 0,
+    display: "grid",
+    gap: 7,
+  },
+  learnedRuleItem: {
+    border: "1px solid #bfdbfe",
+    borderRadius: 8,
+    background: "#fff",
+    color: "#1e3a8a",
+    padding: "8px 10px",
+    fontSize: 12,
+    lineHeight: 1.4,
+  },
+  learnedRulesEmpty: {
+    margin: 0,
+    color: "#94a3b8",
+    fontSize: 12,
+    lineHeight: 1.4,
   },
   listHeader: {
     display: "flex",

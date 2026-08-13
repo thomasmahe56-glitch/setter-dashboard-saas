@@ -6,6 +6,7 @@ import { getStatusLabel, timeAgo, safeDisplayName, isPlaceholderName } from "@/l
 import { Avatar } from "./Avatar";
 import { ChannelBadge } from "./ChannelBadge";
 import { StatusBadge } from "./StatusBadge";
+import { useI18n } from "@/lib/i18n";
 
 const ALL: (Status | "all")[] = ["all","nouveau","en_cours","page_envoyee","appel_booke","signe"];
 
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function ProspectList({ conversations, selectedId, onSelect }: Props) {
+  const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Status | "all">("all");
 
@@ -34,9 +36,9 @@ export function ProspectList({ conversations, selectedId, onSelect }: Props) {
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#fff" }}>
       {/* Header */}
       <div style={{ padding: "16px 16px 12px" }}>
-        <h2 style={{ fontWeight: 700, fontSize: 16, color: "#0a0a0a", margin: 0 }}>Messages</h2>
+        <h2 style={{ fontWeight: 700, fontSize: 16, color: "#0a0a0a", margin: 0 }}>{t("crm.messages", "Messages")}</h2>
         <p style={{ fontSize: 12, color: "#8e8e8e", margin: "2px 0 0" }}>
-          {conversations.length} prospect{conversations.length > 1 ? "s" : ""}
+          {conversations.length} {conversations.length > 1 ? t("crm.prospects", "prospects") : t("crm.prospect", "prospect")}
         </p>
       </div>
 
@@ -46,7 +48,7 @@ export function ProspectList({ conversations, selectedId, onSelect }: Props) {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search"
+          placeholder={t("crm.search", "Search")}
           style={{
             width: "100%", background: "#f5f5f5", border: "none", borderRadius: 9999,
             padding: "8px 12px 8px 34px", fontSize: 13, color: "#0a0a0a",
@@ -67,7 +69,7 @@ export function ProspectList({ conversations, selectedId, onSelect }: Props) {
               color: active ? "#fff" : "#8e8e8e",
               cursor: "pointer", transition: "background 0.15s, color 0.15s",
             }}>
-              {s === "all" ? "All" : getStatusLabel(s)}
+              {s === "all" ? t("crm.all", "All") : getStatusLabel(s, t)}
             </button>
           );
         })}
@@ -76,7 +78,7 @@ export function ProspectList({ conversations, selectedId, onSelect }: Props) {
       {/* List */}
       <div style={{ flex: 1, overflowY: "auto", padding: "0 8px 12px" }}>
         {filtered.map((c) => {
-          const name = safeDisplayName(c.display_name || c.username, "Instagram prospect");
+          const name = safeDisplayName(c.display_name || c.username, t("crm.instagramProspect", "Instagram prospect"));
           const selected = selectedId === c.id;
           return (
             <button key={c.id} onClick={() => onSelect(c.id)} style={{
@@ -115,7 +117,7 @@ export function ProspectList({ conversations, selectedId, onSelect }: Props) {
                   </span>
                 </div>
                 <p style={{ fontSize: 12, color: "#8e8e8e", margin: "0 0 6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {c.message || "No message"}
+                  {c.message || t("crm.noMessage", "No message")}
                 </p>
                 <StatusBadge status={c.status} />
               </div>
@@ -124,7 +126,7 @@ export function ProspectList({ conversations, selectedId, onSelect }: Props) {
         })}
         {filtered.length === 0 && (
           <div style={{ padding: 32, textAlign: "center", color: "#8e8e8e", fontSize: 13 }}>
-            No prospects
+            {t("crm.noProspects", "No prospects")}
           </div>
         )}
       </div>

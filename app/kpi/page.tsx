@@ -94,7 +94,7 @@ export default function KPIPage() {
                       )}
                     </div>
                     <p style={{ fontSize: 28, fontWeight: 800, color: "#0095F6", margin: "0 0 2px" }}>{count}</p>
-                    <p style={{ fontSize: 12, color: "#8e8e8e", margin: 0 }}>{STATUS_LABELS[status]}</p>
+                    <p style={{ fontSize: 12, color: "#8e8e8e", margin: 0 }}>{t(`status.${status}`, STATUS_LABELS[status])}</p>
                   </div>
                 );
               })}
@@ -119,7 +119,7 @@ export default function KPIPage() {
                     const barW = Math.round((count / maxCount) * 100);
                     return (
                       <div key={status} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <span style={{ fontSize: 12, color: "#262626", width: 100, flexShrink: 0 }}>{STATUS_LABELS[status]}</span>
+                        <span style={{ fontSize: 12, color: "#262626", width: 100, flexShrink: 0 }}>{t(`status.${status}`, STATUS_LABELS[status])}</span>
                         <div style={{ flex: 1, height: 8, background: "#f0f0f0", borderRadius: 99, overflow: "hidden" }}>
                           <div style={{ height: "100%", borderRadius: 99, background: STATUS_BAR_COLOR[status], width: `${barW}%`, transition: "width 0.6s" }} />
                         </div>

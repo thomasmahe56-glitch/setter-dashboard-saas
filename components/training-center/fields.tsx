@@ -1,5 +1,6 @@
 import { ChevronDown, FileJson } from "lucide-react";
 import { listToText, parseJsonObject, textToList } from "@/lib/training-center/utils";
+import { useI18n } from "@/lib/i18n";
 
 export function Field({
   label,
@@ -103,6 +104,7 @@ export function JsonEditor({
   onChange: (value: string) => void;
   rows: number;
 }) {
+  const { t } = useI18n();
   const parsed = parseJsonObject<Record<string, unknown>>(value);
   return (
     <label style={styles.jsonWrapper}>
@@ -111,7 +113,7 @@ export function JsonEditor({
         {title}
       </span>
       <span style={styles.debugWarning}>
-        Reserved for advanced users. A formatting error can prevent saving.
+        {t("training.fields.advancedWarning", "Reserved for advanced users. A formatting error can prevent saving.")}
       </span>
       {!parsed.ok && <span style={styles.inlineError}>{parsed.message}</span>}
       <textarea value={value} rows={rows} spellCheck={false} onChange={(event) => onChange(event.target.value)} style={styles.jsonTextarea} />
@@ -120,10 +122,11 @@ export function JsonEditor({
 }
 
 export function AdvancedToggle({ open, onClick }: { open: boolean; onClick: () => void }) {
+  const { t } = useI18n();
   return (
     <button type="button" onClick={onClick} style={ghostButton(false)}>
       <ChevronDown size={15} style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms ease" }} />
-      {open ? "Hide debug" : "Advanced / debug mode"}
+      {open ? t("training.fields.hideDebug", "Hide debug") : t("training.fields.advancedDebug", "Advanced / debug mode")}
     </button>
   );
 }

@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { TrainingChecklist } from "@/lib/training-center/utils";
+import { useI18n } from "@/lib/i18n";
 
 interface TrainingProgressProps {
   progress: number;
@@ -9,35 +10,37 @@ interface TrainingProgressProps {
 }
 
 export function TrainingProgress({ progress, businessScore, level, checklist }: TrainingProgressProps) {
+  const { t } = useI18n();
+  const statusLabel = (status: string) => status === "Complete" ? t("training.status.complete", "Complete") : status === "Prompt rebuilt" ? t("training.status.promptRebuilt", "Prompt rebuilt") : status;
   return (
     <>
       <div style={styles.progressBlock}>
-        <span style={styles.progressLabel}>Progress</span>
+        <span style={styles.progressLabel}>{t("training.progress.progress", "Progress")}</span>
         <strong style={styles.progressValue}>{progress}%</strong>
         <div style={styles.progressTrack}>
           <div style={{ ...styles.progressFill, width: `${progress}%` }} />
         </div>
         <details style={styles.progressDetails}>
-          <summary style={styles.progressHint}>Details saved</summary>
-          <span style={styles.progressDetailText}>{businessScore}/7 offer details saved</span>
+          <summary style={styles.progressHint}>{t("training.progress.detailsSaved", "Details saved")}</summary>
+          <span style={styles.progressDetailText}>{businessScore}/7 {t("training.progress.offerDetailsSaved", "offer details saved")}</span>
         </details>
         <div style={styles.levelCard}>
-          <span style={styles.levelLabel}>Status</span>
-          <strong style={styles.levelTitle}>Ready to test</strong>
-          <span style={styles.levelText}>Angellos has enough context to handle test conversations.</span>
+          <span style={styles.levelLabel}>{t("training.progress.status", "Status")}</span>
+          <strong style={styles.levelTitle}>{t("training.progress.readyToTest", "Ready to test")}</strong>
+          <span style={styles.levelText}>{t("training.progress.readyText", "Angellos has enough context to handle test conversations.")}</span>
         </div>
       </div>
 
       <div style={styles.checklistBlock}>
         {[
-          ["Your offer", checklist.business],
-          ["Knowledge & voice", checklist.knowledge],
-          ["Ideal customer", checklist.avatar],
-          ["Test Angellos", checklist.test],
+          [t("training.progress.yourOffer", "Your offer"), checklist.business],
+          [t("training.progress.knowledgeVoice", "Knowledge & voice"), checklist.knowledge],
+          [t("training.progress.idealCustomer", "Ideal customer"), checklist.avatar],
+          [t("training.progress.testAngellos", "Test Angellos"), checklist.test],
         ].map(([label, status]) => (
           <div key={label} style={styles.checklistRow}>
             <span>{label}</span>
-            <strong>{status}</strong>
+            <strong>{typeof status === "string" ? statusLabel(status) : status}</strong>
           </div>
         ))}
       </div>

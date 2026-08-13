@@ -109,10 +109,10 @@ export default function RelancePage() {
   };
 
   const stepCards = [
-    { title: "Auto 23h", label: "Automatic", color: "#1D9E75", icon: Send, body: "Short follow-up before the Instagram/ManyChat window closes." },
-    { title: "D+3", label: "Assisted", color: "#0095F6", icon: Sparkles, body: "The AI prepares a contextual follow-up to send manually." },
-    { title: "D+10", label: "Assisted", color: "#8b5cf6", icon: Clock3, body: "Gentle follow-up, more open door than sales pressure." },
-    { title: "D+30", label: "Assisted", color: "#d946ef", icon: Clock3, body: "Final check-in for cold conversations, one last touch." },
+    { title: "Auto 23h", label: t("relance.automatic", "Automatic"), color: "#1D9E75", icon: Send, body: t("relance.auto23hBody", "Short follow-up before the Instagram/ManyChat window closes.") },
+    { title: "D+3", label: t("relance.assisted", "Assisted"), color: "#0095F6", icon: Sparkles, body: t("relance.d3Body", "The AI prepares a contextual follow-up to send manually.") },
+    { title: "D+10", label: t("relance.assisted", "Assisted"), color: "#8b5cf6", icon: Clock3, body: t("relance.d10Body", "Gentle follow-up, more open door than sales pressure.") },
+    { title: "D+30", label: t("relance.assisted", "Assisted"), color: "#d946ef", icon: Clock3, body: t("relance.d30Body", "Final check-in for cold conversations, one last touch.") },
   ];
 
   return (
@@ -169,7 +169,7 @@ export default function RelancePage() {
                   </p>
                 </div>
                 <span style={{ fontSize: 12, fontWeight: 700, color: "#8e8e8e", background: "#f5f5f5", padding: "4px 10px", borderRadius: 9999 }}>
-                  {followUps.length} follow-up{followUps.length > 1 ? "s" : ""}
+                  {followUps.length} {followUps.length > 1 ? t("relance.followUpPlural", "follow-ups") : t("relance.followUpSingular", "follow-up")}
                 </span>
               </div>
 
@@ -206,12 +206,12 @@ export default function RelancePage() {
                                 fontSize: 11, fontWeight: 800, color: "#16a34a",
                                 background: "#f0fdf4", padding: "2px 8px", borderRadius: 9999,
                               }}>
-                                Sent
+                                {t("relance.sent", "Sent")}
                               </span>
                             )}
                           </div>
                           <p style={{ fontSize: 12, color: "#8e8e8e", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {item.message || "No last message"} · {item.hours_since_user}h since the last prospect message
+                            {item.message || t("relance.noLastMessage", "No last message")} · {item.hours_since_user}{t("relance.hoursSince", "h since the last prospect message")}
                           </p>
                         </div>
                         <div className="relance-actions" style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
@@ -225,7 +225,7 @@ export default function RelancePage() {
                               opacity: isSending ? 0.7 : 1,
                             }}>
                               {isSending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-                            {isSent ? "Sent" : "Send H23"}
+                            {isSent ? t("relance.sent", "Sent") : t("relance.sendH23", "Send H23")}
                             </button>
                           ) : (
                             <button type="button" onClick={() => handlePreview(item)} disabled={isLoadingPreview} style={{
@@ -235,7 +235,7 @@ export default function RelancePage() {
                             cursor: isLoadingPreview ? "not-allowed" : "pointer", opacity: isLoadingPreview ? 0.6 : 1,
                           }}>
                             {isLoadingPreview ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                            Generate
+                            {t("relance.generate", "Generate")}
                           </button>
                           )}
                           <button type="button" onClick={() => handleCopy(item)} disabled={!preview} style={{
@@ -245,7 +245,7 @@ export default function RelancePage() {
                             cursor: preview ? "pointer" : "not-allowed",
                           }}>
                             {copiedId === item.conversation_id ? <Check size={13} /> : <Copy size={13} />}
-                            {copiedId === item.conversation_id ? "Copied" : "Copy"}
+                            {copiedId === item.conversation_id ? t("relance.copied", "Copied") : t("relance.copy", "Copy")}
                           </button>
                           {handle && (
                             <a href={`https://instagram.com/${handle}`} target="_blank" rel="noreferrer" style={{
@@ -273,9 +273,9 @@ export default function RelancePage() {
             </div>
 
             <div style={{ ...card }}>
-              <h2 style={{ fontSize: 15, fontWeight: 800, color: "#0a0a0a", margin: "0 0 8px" }}>Sending rule</h2>
+              <h2 style={{ fontSize: 15, fontWeight: 800, color: "#0a0a0a", margin: "0 0 8px" }}>{t("relance.sendingRule", "Sending rule")}</h2>
               <p style={{ fontSize: 13, lineHeight: 1.5, color: "#8e8e8e", margin: 0 }}>
-                Auto only before 24h. After that, the AI prepares the message and the coach sends it manually from Instagram or ManyChat Inbox.
+                {t("relance.sendingRuleBody", "Auto only before 24h. After that, the AI prepares the message and the coach sends it manually from Instagram or ManyChat Inbox.")}
               </p>
             </div>
           </div>

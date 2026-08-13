@@ -32,10 +32,10 @@ export const STATUS_BAR_COLOR: Record<Status, string> = {
 
 export const FALLBACK_STATUS_STYLE = { color: "#4b5563", bg: "#f3f4f6", border: "#e5e7eb" };
 
-export function getStatusLabel(status?: string | null): string {
-  if (status && status in STATUS_LABELS) return STATUS_LABELS[status as Status];
-  if (status === "pending_delivery") return "Pending delivery";
-  return status ? status.replace(/_/g, " ") : "Unknown";
+export function getStatusLabel(status?: string | null, t?: (key: string, fallback: string) => string): string {
+  if (status && status in STATUS_LABELS) return t ? t(`status.${status}`, STATUS_LABELS[status as Status]) : STATUS_LABELS[status as Status];
+  if (status === "pending_delivery") return t ? t("status.pending_delivery", "Pending delivery") : "Pending delivery";
+  return status ? status.replace(/_/g, " ") : (t ? t("status.unknown", "Unknown") : "Unknown");
 }
 
 export function getStatusStyle(status?: string | null) {

@@ -6,6 +6,7 @@ import { getContactLabel, getContactUrl, getConversationChannel, getStatusLabel,
 import { Avatar } from "./Avatar";
 import { ChannelBadge } from "./ChannelBadge";
 import { StatusBadge } from "./StatusBadge";
+import { useI18n } from "@/lib/i18n";
 
 const STATUSES: Status[] = ["nouveau","en_cours","page_envoyee","appel_booke","signe"];
 
@@ -41,6 +42,7 @@ function MessageSkeleton() {
 }
 
 export function ConversationPanel({ conversation: c, loadingDetails = false, detailError = null, onBack, onUpdate, onDelete }: Props) {
+  const { t } = useI18n();
   const [statusOpen, setStatusOpen] = useState(false);
   const [activating, setActivating] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -53,7 +55,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
   const [generatePendingError, setGeneratePendingError] = useState<string | null>(null);
 
   const history = Array.isArray(c.history) ? c.history : [];
-  const name = safeDisplayName(c.display_name || c.username, "Instagram prospect");
+  const name = safeDisplayName(c.display_name || c.username, t("crm.instagramProspect", "Instagram prospect"));
   const channel = getConversationChannel(c);
   const contactLabel = getContactLabel(c);
   const profileUrl = getContactUrl(c, "profile");
@@ -89,7 +91,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
   }
 
   async function handleDelete() {
-    if (!confirm(`Delete ${name}?`)) return;
+    if (!confirm(`${t("training.learned.delete", "Delete")} ${name}?`)) return;
     try { await api.delete(c.id); onDelete(c.id); } catch {}
   }
 
@@ -125,7 +127,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
       setRefineInstruction("");
       setRefineOpen(false);
     } catch {
-      setRefineError("Angellos couldn't refine the message. Try again.");
+      setRefineError(t("crm.refineError", "Angellos couldn't refine the message. Try again."));
     }
     setRefining(false);
   }
@@ -169,7 +171,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
               border: "1px solid #e0e0e0", background: "#fff",
               fontSize: 12, fontWeight: 500, color: "#262626", cursor: "pointer",
             }}>
-              {getStatusLabel(c.status)}
+              {getStatusLabel(c.status, t)}
               <ChevronDown size={12} color="#8e8e8e" />
             </button>
             {statusOpen && (
@@ -188,7 +190,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                     color: c.status === s ? "#0095F6" : "#262626",
                     cursor: "pointer",
                   }}>
-                    {getStatusLabel(s)}
+                    {getStatusLabel(s, t)}
                   </button>
                 ))}
               </div>
@@ -213,7 +215,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
               opacity: activating ? 0.6 : 1,
             }}>
               <Zap size={14} />
-              {activating ? "..." : "Activate"}
+              {activating ? "..." : t("crm.activate", "Activate")}
             </button>
           ) : (
             <button onClick={handleDeactivate} disabled={activating} style={{
@@ -225,7 +227,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
               opacity: activating ? 0.6 : 1,
             }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
-              {activating ? "..." : "Deactivate"}
+              {activating ? "..." : t("crm.deactivate", "Deactivate")}
             </button>
           )}
 
@@ -246,7 +248,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
         padding: "6px 24px", borderBottom: "1px solid #f5f5f5",
         background: "#fafafa", flexShrink: 0,
       }}>
-        <span style={{ fontSize: 11, color: "#8e8e8e", fontWeight: 500, marginRight: 2 }}>Mode:</span>
+        <span style={{ fontSize: 11, color: "#8e8e8e", fontWeight: 500, marginRight: 2 }}>{t("crm.mode", "Mode:")}</span>
         {(["auto", "supervised", "disabled"] as const).map((mode) => {
           const isActive = (c.automation_mode ?? "supervised") === mode;
           const col = {
@@ -254,7 +256,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
             supervised: { activeBg: "#d97706", activeColor: "#fff", idleBg: "#fffbeb", idleColor: "#d97706" },
             disabled: { activeBg: "#6b7280", activeColor: "#fff", idleBg: "#f5f5f5", idleColor: "#6b7280" },
           }[mode];
-          const label = { auto: "Auto", supervised: "Supervised", disabled: "Off" }[mode];
+          const label = { auto: t("crm.auto", "Auto"), supervised: t("crm.supervised", "Supervised"), disabled: t("crm.off", "Off") }[mode];
           return (
             <button key={mode} onClick={() => handleModeChange(mode)} disabled={modeChanging} style={{
               padding: "3px 10px", borderRadius: 9999, fontSize: 11, fontWeight: 600, border: "none",
@@ -281,10 +283,10 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
         }}>
           <Sparkles size={14} color="#0095F6" />
           {(c.automation_mode ?? "supervised") === "auto"
-            ? "AI agent active — automatic replies enabled"
+            ? t("crm.agentAuto", "AI agent active — automatic replies enabled")
             : (c.automation_mode ?? "supervised") === "supervised"
-            ? "AI agent active — replies require your approval"
-            : "AI agent is paused"}
+            ? t("crm.agentSupervised", "AI agent active — replies require your approval")
+            : t("crm.agentPaused", "AI agent is paused")}
         </div>
       )}
 
@@ -307,9 +309,9 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                 const msg = err instanceof Error ? err.message : "";
                 console.error("[generate-pending] error:", msg, err);
                 if (msg.includes("404") || msg.includes("Not Found")) {
-                  setGeneratePendingError("Backend is still deploying — wait 1–2 minutes and try again.");
+                  setGeneratePendingError(t("crm.backendDeploying", "Backend is still deploying — wait 1–2 minutes and try again."));
                 } else {
-                  setGeneratePendingError(msg || "Unknown error — check the browser console and Railway logs.");
+                  setGeneratePendingError(msg || t("crm.unknownError", "Unknown error — check the browser console and Railway logs."));
                 }
               }
               setGeneratingPending(false);
@@ -325,7 +327,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
             }}
           >
             {generatingPending ? <Loader2 size={13} className="animate-spin" /> : "✨"}
-            {generatingPending ? "Generating..." : "Generate suggested reply"}
+            {generatingPending ? t("crm.generating", "Generating...") : t("crm.generateSuggested", "Generate suggested reply")}
           </button>
           {generatePendingError && (
             <div style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>{generatePendingError}</div>
@@ -333,7 +335,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
         </div>
       )}
 
-      {/* Pending message banner */}
+      {/* {t("crm.pendingMessage", "Pending message")} banner */}
       {c.pending_message && (
         <div className="pending-message-banner" style={{
           margin: "12px 24px 0", padding: "12px 16px", borderRadius: 16,
@@ -341,10 +343,10 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
         }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#d97706", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Pending message
+              {t("crm.pendingMessage", "Pending message")}
             </span>
             <button onClick={handleIgnorePending} style={{ fontSize: 11, color: "#8e8e8e", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-              Ignore
+              {t("crm.ignore", "Ignore")}
             </button>
           </div>
           <p style={{ fontSize: 13, color: "#0a0a0a", margin: "0 0 10px", lineHeight: 1.5 }}>
@@ -364,7 +366,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
               }}
             >
               {copied ? <Check size={13} /> : <Copy size={13} />}
-              {copied ? "Copied!" : "Copy"}
+              {copied ? t("crm.copied", "Copied!") : t("crm.copy", "Copy")}
             </button>
             {messageUrl && (
               <a
@@ -380,7 +382,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                 }}
               >
                 <ExternalLink size={13} />
-                Open {channelName}
+                {t("crm.openChannel", "Open {channel}").replace("{channel}", channelName)}
               </a>
             )}
             <button
@@ -395,7 +397,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                 fontSize: 12, fontWeight: 500, cursor: "pointer",
               }}
             >
-              ✨ Ask Angellos to refine
+              {t("crm.askRefine", "✨ Ask Angellos to refine")}
             </button>
             <button
               type="button"
@@ -406,7 +408,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                 color: "#8e8e8e", fontSize: 12, fontWeight: 500, cursor: "pointer",
               }}
             >
-              Ignore
+              {t("crm.ignore", "Ignore")}
             </button>
           </div>
 
@@ -415,7 +417,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
               <textarea
                 value={refineInstruction}
                 onChange={(e) => setRefineInstruction(e.target.value)}
-                placeholder='Example: "Make it warmer", "They mentioned an injury, include that", "Too long, shorten it"'
+                placeholder={t("crm.refinePlaceholder", 'Example: "Make it warmer", "They mentioned an injury, include that", "Too long, shorten it"')}
                 rows={2}
                 style={{
                   width: "100%", padding: "8px 12px",
@@ -445,7 +447,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                 }}
               >
                 {refining ? <Loader2 size={13} className="animate-spin" /> : "✨"}
-                {refining ? "Angellos is refining..." : "Refine message"}
+                {refining ? t("crm.refining", "Angellos is refining...") : t("crm.refineMessage", "Refine message")}
               </button>
             </div>
           )}
@@ -458,7 +460,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#8e8e8e", fontSize: 12 }}>
               <Loader2 className="animate-spin" size={14} color="#0095F6" />
-              Loading conversation
+              {t("crm.loadingConversation", "Loading conversation")}
             </div>
             <MessageSkeleton />
           </div>
@@ -468,7 +470,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
           </div>
         ) : history.length === 0 ? (
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#8e8e8e", fontSize: 13 }}>
-            No history
+            {t("crm.noHistory", "No history")}
           </div>
         ) : history.map((msg, i) => {
           const isAgent = msg.role === "assistant";
@@ -483,7 +485,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
                     textAlign: isAgent ? "right" : "left",
                     margin: `${i > 0 ? "6px" : "0"} 4px 0`,
                   }}>
-                    {isAgent ? "AI agent" : contactLabel}
+                    {isAgent ? t("crm.aiAgent", "AI agent") : contactLabel}
                   </span>
                 )}
                 <div style={{
@@ -509,7 +511,7 @@ export function ConversationPanel({ conversation: c, loadingDetails = false, det
         display: "flex", justifyContent: "space-between",
         fontSize: 11, color: "#8e8e8e", flexShrink: 0,
       }}>
-        <span>{history.length} messages · ID {c.subscriber_id || c.id.slice(0, 8)}</span>
+        <span>{history.length} {t("crm.messagesCount", "messages")} · ID {c.subscriber_id || c.id.slice(0, 8)}</span>
         {profileUrl && (
           <a href={profileUrl} target="_blank" rel="noreferrer"
             style={{ color: "#8e8e8e", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>

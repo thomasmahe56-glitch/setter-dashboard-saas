@@ -1,7 +1,9 @@
 import { Status } from "@/lib/api";
 import { getStatusLabel, getStatusStyle } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 export function StatusBadge({ status }: { status: Status }) {
+  const { t } = useI18n();
   const s = getStatusStyle(status);
   return (
     <span style={{
@@ -11,7 +13,7 @@ export function StatusBadge({ status }: { status: Status }) {
       color: s.color, background: s.bg,
       whiteSpace: "nowrap",
     }}>
-      {getStatusLabel(status)}
+      {getStatusLabel(status, t)}
     </span>
   );
 }

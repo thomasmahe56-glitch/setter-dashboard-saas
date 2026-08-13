@@ -98,54 +98,70 @@ const PROMPT_REFINEMENT_CHIPS = [
   "Bad question",
 ];
 
-const STEPS: {
+const STEP_DEFINITIONS: {
   id: MainStepId;
+  titleKey: string;
   title: string;
   eyebrow: string;
+  descriptionKey: string;
   description: string;
 }[] = [
   {
     id: "business",
     eyebrow: "01",
+    titleKey: "training.step.business.title",
     title: "Your offer",
+    descriptionKey: "training.step.business.description",
     description: "What you sell and when to move forward.",
   },
   {
     id: "knowledge",
     eyebrow: "02",
+    titleKey: "training.step.knowledge.title",
     title: "Knowledge & voice",
+    descriptionKey: "training.step.knowledge.description",
     description: "Upload docs or paste transcripts.",
   },
   {
     id: "avatar-input",
     eyebrow: "03",
+    titleKey: "training.step.avatar-input.title",
     title: "Ideal customer",
+    descriptionKey: "training.step.avatar-input.description",
     description: "Who Angellos should qualify.",
   },
   {
     id: "avatar-review",
     eyebrow: "04",
+    titleKey: "training.step.avatar-review.title",
     title: "Customer notes",
+    descriptionKey: "training.step.avatar-review.description",
     description: "Review what Angellos understood.",
   },
   {
     id: "launch",
     eyebrow: "04",
+    titleKey: "training.step.launch.title",
     title: "Test Angellos",
+    descriptionKey: "training.step.launch.description",
     description: "Try it and improve replies.",
   },
 ];
 
 const DEVELOPER_RULES_STEP: {
   id: StepId;
+  titleKey: string;
   title: string;
   eyebrow: string;
+  descriptionKey: string;
   description: string;
 } = {
   id: "rules",
   eyebrow: "DEV",
-  title: "Conversation rules",
-  description: "Advanced settings.",
+  titleKey: "training.step.rules.title",
+    title: "Conversation rules",
+  descriptionKey: "training.step.rules.description",
+    description: "Advanced settings.",
 };
 
 const AVATAR_LABELS: Record<keyof AvatarGenerateInput, { label: string; hint: string; placeholder: string }> = {
@@ -388,8 +404,8 @@ export default function TrainingCenterPage() {
 
   const actionDisabled = loading || savingProfile || generatingAvatar || savingAvatar || generatingRules || savingRules || rebuilding || chatLoading || knowledgeLoading || knowledgeSaving || refineLoading || refineApplying || Boolean(restoreLoading);
   const visibleSteps = useMemo(() => {
-    if (!developerMode) return STEPS;
-    return [...STEPS.slice(0, -1), DEVELOPER_RULES_STEP, STEPS[STEPS.length - 1]];
+    if (!developerMode) return STEP_DEFINITIONS;
+    return [...STEP_DEFINITIONS.slice(0, -1), DEVELOPER_RULES_STEP, STEP_DEFINITIONS[STEP_DEFINITIONS.length - 1]];
   }, [developerMode]);
   const currentIndex = visibleSteps.findIndex((step) => step.id === activeStep);
   const canGoBack = currentIndex > 0;
@@ -811,21 +827,21 @@ export default function TrainingCenterPage() {
           <div>
             <div style={styles.titleRow}>
               <GraduationCap size={24} color="#0095F6" />
-              <h1 style={styles.title}>Teach Angellos</h1>
+              <h1 style={styles.title}>{t("training.header.title", "Teach Angellos")}</h1>
             </div>
             <p style={styles.subtitle}>
-              Show Angellos how to qualify prospects, reply in your tone, and move the right people to the next step.
+              {t("training.header.subtitle", "Show Angellos how to qualify prospects, reply in your tone, and move the right people to the next step.")}
             </p>
             <p style={styles.microCopy}>
-              Answer simply in your own words. Correct Angellos like you would correct a teammate.
+              {t("training.header.microCopy", "Answer simply in your own words. Correct Angellos like you would correct a teammate.")}
             </p>
           </div>
           <button
             type="button"
             onClick={loadTrainingCenter}
             disabled={loading}
-            title="Refresh"
-            aria-label="Refresh"
+            title={t("training.refresh", "Refresh")}
+            aria-label={t("training.refresh", "Refresh")}
             style={iconButton(loading)}
           >
             {loading ? <Loader2 size={17} className="animate-spin" /> : <RefreshCw size={17} />}
@@ -862,8 +878,8 @@ export default function TrainingCenterPage() {
                       {done ? <Check size={13} /> : step.eyebrow}
                     </span>
                     <span style={{ minWidth: 0 }}>
-                      <span style={styles.stepTitle}>{step.title}</span>
-                      <span style={styles.stepDescription}>{step.description}</span>
+                      <span style={styles.stepTitle}>{t(step.titleKey, step.title)}</span>
+                      <span style={styles.stepDescription}>{t(step.descriptionKey, step.description)}</span>
                     </span>
                     {index < visibleSteps.length - 1 && <span style={styles.stepLine} />}
                   </button>
@@ -1010,10 +1026,10 @@ export default function TrainingCenterPage() {
             <div style={styles.footerNav}>
               <button type="button" onClick={goBack} disabled={!canGoBack || actionDisabled} style={ghostButton(!canGoBack || actionDisabled)}>
                 <ArrowLeft size={15} />
-                Back
+                {t("training.back", "Back")}
               </button>
               <button type="button" onClick={goNext} disabled={!canGoNext || actionDisabled} style={ghostButton(!canGoNext || actionDisabled)}>
-                Next
+                {t("training.next", "Next")}
                 <ArrowRight size={15} />
               </button>
             </div>
@@ -1037,22 +1053,23 @@ export default function TrainingCenterPage() {
 }
 
 function AutosaveIndicator({ status }: { status: AutosaveStatus }) {
+  const { t } = useI18n();
   if (status === "idle") return null;
   if (status === "saving") {
     return (
       <span style={styles.autosaveSaving}>
         <Loader2 size={12} className="animate-spin" />
-        Saving...
+        {t("training.autosave.saving", "Saving...")}
       </span>
     );
   }
   if (status === "error") {
-    return <span style={styles.autosaveError}>Not saved</span>;
+    return <span style={styles.autosaveError}>{t("training.autosave.error", "Not saved")}</span>;
   }
   return (
     <span style={styles.autosaveSaved}>
       <Check size={12} />
-      Saved
+      {t("training.autosave.saved", "Saved")}
     </span>
   );
 }
@@ -1190,15 +1207,16 @@ function LearnedRulesList({
   onEdit: (previousRule: string, nextRule: string) => void;
   onDelete: (rule: string) => void;
 }) {
+  const { t } = useI18n();
   if (rules.length === 0) {
-    return <p style={styles.learnedRulesEmpty}>No automatically learned rule yet.</p>;
+    return <p style={styles.learnedRulesEmpty}>{t("training.learned.empty", "No automatically learned rule yet.")}</p>;
   }
 
   return (
     <section style={styles.learnedRulesPanel}>
       <div style={styles.learnedRulesHeader}>
-        <span>Automatically learned rules</span>
-        <span style={styles.learnedBadge}>learned</span>
+        <span>{t("training.learned.title", "Automatically learned rules")}</span>
+        <span style={styles.learnedBadge}>{t("training.learned.badge", "learned")}</span>
       </div>
       <ul style={styles.learnedRulesList}>
         {rules.map((rule, index) => (
@@ -1216,7 +1234,7 @@ function LearnedRulesList({
               onClick={() => onDelete(rule)}
               style={styles.learnedRuleDeleteButton}
             >
-              Delete
+              {t("training.learned.delete", "Delete")}
             </button>
           </li>
         ))}
@@ -1258,6 +1276,7 @@ function KnowledgeVoiceStep({
   onExtract: () => void;
   onTrain: () => void;
 }) {
+  const { t } = useI18n();
   const canExtract = Boolean(manualProcess.trim() || pastedText.trim() || fileName);
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -1380,10 +1399,11 @@ function AvatarInputStep({
   onChange: (key: keyof AvatarGenerateInput, value: string) => void;
   onGenerate: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div>
       <SectionHeader
-        eyebrow="Ideal customer"
+        eyebrow={t("training.avatarInput.eyebrow", "Ideal customer")}
         title="Describe who Angellos should qualify"
         description="Write naturally. Angellos will turn your answers into simple customer notes you can review."
         action={
@@ -1402,9 +1422,9 @@ function AvatarInputStep({
         {Object.entries(AVATAR_LABELS).map(([key, item]) => (
           <PromptField
             key={key}
-            label={item.label}
-            hint={item.hint}
-            placeholder={item.placeholder}
+            label={t(`training.avatarInput.${key}.label`, item.label)}
+            hint={t(`training.avatarInput.${key}.hint`, item.hint)}
+            placeholder={t(`training.avatarInput.${key}.placeholder`, item.placeholder)}
             value={input[key as keyof AvatarGenerateInput]}
             onChange={(value) => onChange(key as keyof AvatarGenerateInput, value)}
           />
@@ -1447,10 +1467,11 @@ function AvatarReviewStep({
   onSave: () => void;
   onGenerateRules: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div>
       <SectionHeader
-        eyebrow="Customer notes"
+        eyebrow={t("training.avatarReview.eyebrow", "Customer notes")}
         title="Review what Angellos understood"
         description="Correct the important wording before Angellos uses it in test conversations."
         action={
@@ -1496,7 +1517,7 @@ function AvatarReviewStep({
         {AVATAR_ARRAY_FIELDS.map((field) => (
           <EditableList
             key={field.key}
-            label={field.label}
+            label={t(`training.avatar.${field.key}`, field.label)}
             empty={field.empty}
             items={getStringList(avatar[field.key])}
             onChange={(items) => onAvatarChange(field.key, items)}
@@ -1559,6 +1580,7 @@ function RulesStep({
   onGenerate: () => void;
   onSave: () => void;
 }) {
+  const { t } = useI18n();
   const simpleRules = buildSimpleRules(rules);
 
   return (
@@ -1707,6 +1729,7 @@ function LaunchStep({
   onRestorePrompt: (versionId: string) => void;
   onRebuild: () => void;
 }) {
+  const { t } = useI18n();
   const avatarTextCount = [
     avatar.persona_summary,
     avatar.current_situation,
@@ -1823,6 +1846,7 @@ function TestConversation({
   onReset: () => void;
   onNeedsImprovement: (reply: string) => void;
 }) {
+  const { t } = useI18n();
   return (
     <section style={styles.toolCard}>
       <div style={styles.toolHeader}>
@@ -1924,6 +1948,7 @@ function PromptRefinementPanel({
   onApply: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useI18n();
   const previewReady = Boolean(preview);
   const busy = loading || applying;
   const canPreview = !disabled && !busy && instruction.trim().length > 0;
@@ -2019,6 +2044,7 @@ function PromptHistory({
   restoreLoading: string | null;
   onRestore: (versionId: string) => void;
 }) {
+  const { t } = useI18n();
   const [selectedVersion, setSelectedVersion] = useState<PromptVersion | null>(null);
   const [memory, setMemory] = useState<PromptVersionMemory | null>(null);
   const [memoryLoading, setMemoryLoading] = useState(false);
@@ -2123,6 +2149,7 @@ function VersionMemoryModal({
   onClose: () => void;
   onRestore: () => void;
 }) {
+  const { t } = useI18n();
   const restoring = restoreLoading === version.id;
 
   return (
@@ -2242,6 +2269,7 @@ function PreviewPanel({
   developerMode: boolean;
   onEdit: (step: StepId) => void;
 }) {
+  const { t } = useI18n();
   const topAvatarItems = [
     ...getStringList(avatar.pain_points).slice(0, 2),
     ...getStringList(avatar.objections).slice(0, 2),
@@ -2330,6 +2358,7 @@ function getVisibleForbiddenTopics(profile: TrainingProfileInput, rules: AgentSa
 }
 
 function PreviewSection({ title, children, onEdit }: { title: string; children: React.ReactNode; onEdit?: () => void }) {
+  const { t } = useI18n();
   return (
     <section style={styles.previewSection}>
       <div style={styles.previewSectionHeader}>
@@ -2380,6 +2409,7 @@ function KnowledgePreviewSection({
   items: string[];
   onChange: (items: string[]) => void;
 }) {
+  const { t } = useI18n();
   const visibleItems = items.length > 0 ? items : [""];
   return (
     <section style={styles.knowledgePreviewCard}>

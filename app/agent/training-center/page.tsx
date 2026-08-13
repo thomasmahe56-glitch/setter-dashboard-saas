@@ -523,6 +523,10 @@ export default function TrainingCenterPage() {
     setRulesJson(prettyJson({ ...rules, [key]: value }));
   }
 
+  function updateRulesFields(patch: Partial<AgentSalesRules>) {
+    setRulesJson(prettyJson({ ...rules, ...patch }));
+  }
+
   function goNext() {
     if (canGoNext) setActiveStep(visibleSteps[currentIndex + 1].id);
   }
@@ -874,6 +878,7 @@ export default function TrainingCenterPage() {
                 profile={profile}
                 rules={rules}
                 onChange={updateProfile}
+                onRulesChange={updateRulesFields}
                 autosaveStatus={autosave.profile.status}
                 disabled={actionDisabled}
                 saving={savingProfile}
@@ -1056,6 +1061,7 @@ function BusinessStep({
   profile,
   rules,
   onChange,
+  onRulesChange,
   autosaveStatus,
   disabled,
   saving,
@@ -1068,10 +1074,32 @@ function BusinessStep({
   disabled: boolean;
   saving: boolean;
   onChange: (key: keyof TrainingProfileInput, value: string | string[]) => void;
+  onRulesChange: (patch: Partial<AgentSalesRules>) => void;
   onSave: () => void;
   t: (key: string, fallback: string) => string;
 }) {
   const learnedDoNotSayRules = getLearnedDoNotSayRules(profile, rules);
+
+  function updateLearnedRule(previousRule: string, nextRule: string) {
+    const current = getStringList(rules.do_not_say);
+    const previous = normalizeRule(previousRule);
+    const next = nextRule.trim();
+    const updated = current
+      .map((rule) => normalizeRule(rule) === previous ? next : rule)
+      .filter((rule) => rule.trim());
+    const updatedObjections = getStringList(rules.objection_responses)
+      .map((rule) => normalizeRule(rule) === previous ? next : rule)
+      .filter((rule) => rule.trim());
+    onRulesChange({ do_not_say: updated, objection_responses: updatedObjections });
+  }
+
+  function deleteLearnedRule(ruleToDelete: string) {
+    const target = normalizeRule(ruleToDelete);
+    onRulesChange({
+      do_not_say: getStringList(rules.do_not_say).filter((rule) => normalizeRule(rule) !== target),
+      objection_responses: getStringList(rules.objection_responses).filter((rule) => normalizeRule(rule) !== target),
+    });
+  }
 
   return (
     <div>
@@ -1135,7 +1163,12 @@ function BusinessStep({
           <TextField label={t("training.tone", "Tone to respect")} value={listToText(profile.tone_rules)} rows={4} onChange={(v) => onChange("tone_rules", textToList(v))} placeholder="One tone rule per line." />
           <div style={styles.doNotSayBlock}>
             <TextField label={t("training.doNotSay", "Do not say")} value={listToText(profile.forbidden_phrases)} rows={4} onChange={(v) => onChange("forbidden_phrases", textToList(v))} placeholder="Example: guaranteed promises, aggressive pitch, guilt-based follow-ups. One phrase per line." />
-            <LearnedRulesList rules={learnedDoNotSayRules} />
+            <LearnedRulesList
+              rules={learnedDoNotSayRules}
+              disabled={disabled}
+              onEdit={updateLearnedRule}
+              onDelete={deleteLearnedRule}
+            />
           </div>
           <Field label={t("training.callLink", "Call link")} value={profile.calendly_url} onChange={(v) => onChange("calendly_url", v)} placeholder="https://calendly.com/..." />
           <Field label={t("training.salesPageLink", "Sales page link")} value={profile.sales_page_url} onChange={(v) => onChange("sales_page_url", v)} placeholder="https://..." />
@@ -1146,7 +1179,17 @@ function BusinessStep({
   );
 }
 
-function LearnedRulesList({ rules }: { rules: string[] }) {
+function LearnedRulesList({
+  rules,
+  disabled,
+  onEdit,
+  onDelete,
+}: {
+  rules: string[];
+  disabled: boolean;
+  onEdit: (previousRule: string, nextRule: string) => void;
+  onDelete: (rule: string) => void;
+}) {
   if (rules.length === 0) {
     return <p style={styles.learnedRulesEmpty}>No automatically learned rule yet.</p>;
   }
@@ -1158,8 +1201,24 @@ function LearnedRulesList({ rules }: { rules: string[] }) {
         <span style={styles.learnedBadge}>learned</span>
       </div>
       <ul style={styles.learnedRulesList}>
-        {rules.map((rule) => (
-          <li key={rule} style={styles.learnedRuleItem}>{rule}</li>
+        {rules.map((rule, index) => (
+          <li key={`learned-rule-${index}`} style={styles.learnedRuleItem}>
+            <textarea
+              value={rule}
+              rows={Math.max(2, Math.ceil(rule.length / 70))}
+              disabled={disabled}
+              onChange={(event) => onEdit(rule, event.target.value)}
+              style={styles.learnedRuleTextarea}
+            />
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onDelete(rule)}
+              style={styles.learnedRuleDeleteButton}
+            >
+              Delete
+            </button>
+          </li>
         ))}
       </ul>
     </section>
@@ -3163,6 +3222,30 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "8px 10px",
     fontSize: 12,
     lineHeight: 1.4,
+    display: "grid",
+    gap: 8,
+  },
+  learnedRuleTextarea: {
+    width: "100%",
+    border: "none",
+    background: "transparent",
+    color: "#1e3a8a",
+    fontSize: 12,
+    lineHeight: 1.4,
+    fontFamily: "inherit",
+    resize: "vertical",
+    outline: "none",
+    padding: 0,
+  },
+  learnedRuleDeleteButton: {
+    justifySelf: "start",
+    border: "none",
+    background: "transparent",
+    color: "#dc2626",
+    fontSize: 12,
+    fontWeight: 850,
+    padding: 0,
+    cursor: "pointer",
   },
   learnedRulesEmpty: {
     margin: 0,

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { config as appConfig } from "@/lib/config";
 import { createClient } from "@/lib/supabase/client";
 import { AngelosAvatar } from "@/components/AngelosAvatar";
+import { getPostAuthDestination } from "@/lib/onboarding";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,8 +16,11 @@ export default function LoginPage() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.replace("/crm");
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (data.session) {
+        const destination = await getPostAuthDestination().catch(() => "/crm" as const);
+        router.replace(destination);
+      }
       else setChecking(false);
     });
   }, [router]);
@@ -38,7 +42,8 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    router.replace("/crm");
+    const destination = await getPostAuthDestination().catch(() => "/crm" as const);
+    router.replace(destination);
     router.refresh();
   }
 
@@ -138,7 +143,7 @@ export default function LoginPage() {
         </div>
 
         <p style={{ textAlign: "center", fontSize: 12, color: "#9ca3af", marginTop: 20 }}>
-          {appConfig.agentName} · Setter Dashboard · Restricted access
+          New beta user? <a href="/signup" style={{ color: "#0095F6", fontWeight: 700 }}>Create your beta account</a>
         </p>
       </div>
     </div>

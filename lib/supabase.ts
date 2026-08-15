@@ -21,6 +21,8 @@ export const supabase = {
     getUser: () => getSupabaseClient().auth.getUser(),
     signInWithPassword: (credentials: { email: string; password: string }) =>
       getSupabaseClient().auth.signInWithPassword(credentials),
+    signUp: (credentials: { email: string; password: string }) =>
+      getSupabaseClient().auth.signUp(credentials),
     signOut: () => getSupabaseClient().auth.signOut(),
     onAuthStateChange: (
       callback: Parameters<SupabaseClient["auth"]["onAuthStateChange"]>[0]

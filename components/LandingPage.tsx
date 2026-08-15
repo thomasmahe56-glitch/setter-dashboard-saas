@@ -131,8 +131,8 @@ export function LandingPage() {
           <Link className="landing-nav-link" href="/login">
             Login
           </Link>
-          <Link className="landing-button landing-button-dark" href="/login">
-            Open dashboard
+          <Link className="landing-button landing-button-dark" href="/signup">
+            Start beta
             <ArrowRight size={16} />
           </Link>
         </div>
@@ -151,8 +151,8 @@ export function LandingPage() {
             that is fast and consistent with the way you sell.
           </p>
           <div data-hero="cta" className="landing-hero-actions">
-            <Link className="landing-button landing-button-dark landing-button-lg" href="/login">
-              Access dashboard
+            <Link className="landing-button landing-button-dark landing-button-lg" href="/signup">
+              Start beta onboarding
               <ArrowRight size={18} />
             </Link>
             <Link className="landing-button landing-button-soft landing-button-lg" href="/crm">
@@ -263,8 +263,8 @@ export function LandingPage() {
       <section data-reveal className="landing-final-cta" aria-labelledby="cta-title">
         <Zap size={22} />
         <h2 id="cta-title">Your AI CRM, ready to work with you.</h2>
-        <Link className="landing-button landing-button-dark landing-button-lg" href="/login">
-          Enter {config.agentName}
+        <Link className="landing-button landing-button-dark landing-button-lg" href="/signup">
+          Start beta onboarding
           <ArrowRight size={18} />
         </Link>
       </section>

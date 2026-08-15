@@ -4,7 +4,12 @@ import { useRouter } from "next/navigation";
 import { config as appConfig } from "@/lib/config";
 import { createClient } from "@/lib/supabase/client";
 import { AngelosAvatar } from "@/components/AngelosAvatar";
-import { getPostAuthDestination } from "@/lib/onboarding";
+import { getPostAuthDestination, sanitizePostAuthRoute } from "@/lib/onboarding";
+
+function getRequestedDestination() {
+  if (typeof window === "undefined") return null;
+  return sanitizePostAuthRoute(new URLSearchParams(window.location.search).get("next"));
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,7 +23,7 @@ export default function LoginPage() {
     const supabase = createClient();
     supabase.auth.getSession().then(async ({ data }) => {
       if (data.session) {
-        const destination = await getPostAuthDestination().catch(() => "/crm" as const);
+        const destination = getRequestedDestination() ?? await getPostAuthDestination().catch(() => "/crm" as const);
         router.replace(destination);
       }
       else setChecking(false);
@@ -42,7 +47,7 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    const destination = await getPostAuthDestination().catch(() => "/crm" as const);
+    const destination = getRequestedDestination() ?? await getPostAuthDestination().catch(() => "/crm" as const);
     router.replace(destination);
     router.refresh();
   }

@@ -65,6 +65,24 @@ export async function getPostAuthDestination(): Promise<"/onboarding" | "/crm"> 
   return isOnboardingIncomplete(state) ? "/onboarding" : "/crm";
 }
 
+const SAFE_POST_AUTH_ROUTES = new Set(["/onboarding", "/crm", "/agent/training-center"]);
+
+export type SafePostAuthRoute = "/onboarding" | "/crm" | "/agent/training-center";
+
+export function sanitizePostAuthRoute(next: string | null | undefined): SafePostAuthRoute | null {
+  if (!next) return null;
+  try {
+    const decodedNext = decodeURIComponent(next);
+    if (!decodedNext.startsWith("/") || decodedNext.startsWith("//") || decodedNext.includes("://")) {
+      return null;
+    }
+    const path = decodedNext.split(/[?#]/)[0];
+    return SAFE_POST_AUTH_ROUTES.has(path) ? (path as SafePostAuthRoute) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function buildBetaAvatar(profile: TrainingProfileInput, objections: string[]): AgentAvatar {
   const niche = profile.niche || "the target audience";
   return {

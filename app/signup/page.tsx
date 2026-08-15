@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2 } from "lucide-react";
@@ -15,6 +15,20 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        router.replace("/onboarding");
+        return;
+      }
+      setCheckingSession(false);
+    });
+  }, [router]);
+
+  if (checkingSession) return null;
 
   async function handleSignup(event: React.FormEvent) {
     event.preventDefault();
@@ -65,7 +79,7 @@ export default function SignupPage() {
             {!loading ? <ArrowRight size={16} /> : null}
           </button>
         </form>
-        <p style={styles.footer}>Already have access? <Link href="/login" style={styles.link}>Sign in</Link></p>
+        <p style={styles.footer}>Already have access? <Link href="/login?next=/onboarding" style={styles.link}>Sign in</Link></p>
       </section>
     </main>
   );

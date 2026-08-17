@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 export type DashboardLanguage = "en" | "fr";
 
@@ -274,6 +274,54 @@ const fr: Record<string, string> = {
   "training.rules.follow_up_rules": "Règles de relance",
   "training.rules.do_not_say": "À ne pas dire",
   "training.rules.escalation_rules": "Quand Thomas doit reprendre",
+  "onboarding.header.eyebrow": "Onboarding bêta Angellos",
+  "onboarding.header.title": "Configure ton setter IA supervisé.",
+  "onboarding.header.openCrm": "Ouvrir le CRM",
+  "onboarding.step.business": "Business",
+  "onboarding.step.offer": "Offre",
+  "onboarding.step.voiceRules": "Voix + règles",
+  "onboarding.step.mode": "Mode",
+  "onboarding.field.language": "Langue",
+  "onboarding.field.businessName": "Nom de l’entreprise",
+  "onboarding.field.coachName": "Nom opérateur / coach",
+  "onboarding.field.niche": "Niche",
+  "onboarding.field.offerName": "Nom de l’offre",
+  "onboarding.field.price": "Prix / règle tarifaire",
+  "onboarding.field.nextStep": "Prochaine étape",
+  "onboarding.field.bookingUrl": "URL de réservation ou page de vente",
+  "onboarding.field.offerPromise": "Promesse de l’offre",
+  "onboarding.field.offerFormat": "Format de l’offre",
+  "onboarding.field.toneRules": "Règles de ton",
+  "onboarding.field.forbiddenPhrases": "Phrases interdites",
+  "onboarding.field.commonObjections": "Objections fréquentes",
+  "onboarding.field.qualificationRules": "Règles de qualification / processus de vente",
+  "onboarding.field.rawNotes": "Notes libres",
+  "onboarding.placeholder.niche": "Qui Angellos doit qualifier",
+  "onboarding.placeholder.offerName": "Nom du programme",
+  "onboarding.placeholder.price": "Prix, fourchette, ou quand parler du prix",
+  "onboarding.placeholder.nextStep": "Réserver un appel, envoyer une page, poser une question de candidature...",
+  "onboarding.placeholder.offerPromise": "Résultat concret recherché par les prospects",
+  "onboarding.placeholder.offerFormat": "Durée, appels, support, livrables",
+  "onboarding.placeholder.toneRules": "Une règle de ton par ligne",
+  "onboarding.placeholder.forbiddenPhrases": "Une phrase interdite par ligne",
+  "onboarding.placeholder.commonObjections": "Une objection ou réponse par ligne",
+  "onboarding.placeholder.qualificationRules": "Questions à poser, signaux d’achat, quand passer à l’étape suivante",
+  "onboarding.placeholder.rawNotes": "Tout ce qu’Angellos doit savoir avant de répondre",
+  "onboarding.mode.title": "Le mode bêta supervisé est forcé.",
+  "onboarding.mode.body": "La connexion Instagram/ManyChat se fait en dehors de ce formulaire. Les nouvelles conversations tenant sont créées en mode supervisé : Angellos génère une réponse en attente dans le CRM, mais aucun envoi automatique n’est activé ici.",
+  "onboarding.save.saving": "Sauvegarde de la configuration...",
+  "onboarding.save.cta": "Sauvegarder la configuration bêta",
+  "onboarding.save.required": "Complète tous les champs business et offre, plus au moins une note de voix/règle, avant de sauvegarder.",
+  "onboarding.notice.saved": "Configuration sauvegardée. Les conversations bêta restent supervisées : Angellos prépare les réponses, tu approuves avant l’envoi.",
+  "onboarding.notice.saveError": "Impossible de sauvegarder la configuration d’onboarding.",
+  "onboarding.test.title": "05 Conversation de test",
+  "onboarding.test.help": "Écris un faux message prospect. La réponse utilise le contexte sauvegardé du Training Center.",
+  "onboarding.test.empty": "Sauvegarde la configuration, puis teste un message prospect.",
+  "onboarding.test.thinking": "Angellos réfléchit...",
+  "onboarding.test.placeholder": "Écris comme un prospect...",
+  "onboarding.test.generate": "Générer une réponse de test",
+  "onboarding.test.openSupervisedCrm": "Ouvrir le CRM supervisé",
+  "onboarding.test.error": "Impossible de générer la réponse de test.",
   "crm.messages": "Messages",
   "crm.prospect": "prospect",
   "crm.prospects": "prospects",
@@ -377,19 +425,21 @@ function readInitialLanguage(): DashboardLanguage {
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<DashboardLanguage>("en");
 
+  const setLanguage = useCallback((nextLanguage: DashboardLanguage) => {
+    setLanguageState(nextLanguage);
+    window.localStorage.setItem(STORAGE_KEY, nextLanguage);
+    document.documentElement.lang = nextLanguage;
+  }, []);
+
   useEffect(() => {
     setLanguageState(readInitialLanguage());
   }, []);
 
   const value = useMemo<I18nContextValue>(() => ({
     language,
-    setLanguage: (nextLanguage) => {
-      setLanguageState(nextLanguage);
-      window.localStorage.setItem(STORAGE_KEY, nextLanguage);
-      document.documentElement.lang = nextLanguage;
-    },
+    setLanguage,
     t: (key, fallback) => dictionaries[language][key] || fallback,
-  }), [language]);
+  }), [language, setLanguage]);
 
   useEffect(() => {
     document.documentElement.lang = language;

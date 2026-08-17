@@ -13,6 +13,7 @@ import {
   textToList,
 } from "@/lib/onboarding";
 import { createClient } from "@/lib/supabase/client";
+import { DashboardLanguage, useI18n } from "@/lib/i18n";
 
 const REQUIRED_FIELDS: (keyof TrainingProfileInput)[] = [
   "business_name",
@@ -27,7 +28,12 @@ const REQUIRED_FIELDS: (keyof TrainingProfileInput)[] = [
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
+function normalizeLanguage(value: string | undefined): DashboardLanguage {
+  return value === "fr" ? "fr" : "en";
+}
+
 export default function OnboardingPage() {
+  const { language, setLanguage, t } = useI18n();
   const [profile, setProfile] = useState<TrainingProfileInput>(EMPTY_BETA_PROFILE);
   const [qualificationRulesText, setQualificationRulesText] = useState("");
   const [objectionsText, setObjectionsText] = useState("");
@@ -51,7 +57,11 @@ export default function OnboardingPage() {
         const savedProfile = state.profile?.profile;
         const savedRules = state.sales_rules?.rules;
         if (savedProfile) {
-          setProfile({ ...EMPTY_BETA_PROFILE, ...savedProfile });
+          const nextProfile = { ...EMPTY_BETA_PROFILE, ...savedProfile };
+          setProfile(nextProfile);
+          if (nextProfile.language === "fr" || nextProfile.language === "en") {
+            setLanguage(nextProfile.language);
+          }
         }
         if (savedRules?.qualification_questions) {
           setQualificationRulesText(listToText(savedRules.qualification_questions));
@@ -65,7 +75,7 @@ export default function OnboardingPage() {
         setChecking(false);
       }
     });
-  }, []);
+  }, [setLanguage]);
 
   const missingFields = useMemo(
     () => REQUIRED_FIELDS.filter((key) => !String(profile[key] || "").trim()),
@@ -75,10 +85,23 @@ export default function OnboardingPage() {
   const qualificationRules = useMemo(() => textToList(qualificationRulesText), [qualificationRulesText]);
   const objections = useMemo(() => textToList(objectionsText), [objectionsText]);
 
+  useEffect(() => {
+    const profileLanguage = normalizeLanguage(profile.language);
+    if (profileLanguage !== language) {
+      setLanguage(profileLanguage);
+    }
+  }, [profile.language, language, setLanguage]);
+
   function updateProfile(key: keyof TrainingProfileInput, value: string | string[]) {
     setProfile((current) => ({ ...current, [key]: value }));
     setSaveState("idle");
     setNotice("");
+  }
+
+  function updateOnboardingLanguage(value: string) {
+    const nextLanguage = normalizeLanguage(value);
+    setLanguage(nextLanguage);
+    updateProfile("language", nextLanguage);
   }
 
   async function saveConfiguration() {
@@ -106,10 +129,10 @@ export default function OnboardingPage() {
       await api.saveSalesRules(betaRules);
       await api.rebuildAgentPrompt();
       setSaveState("saved");
-      setNotice("Configuration saved. Beta conversations stay supervised: Angellos drafts replies, you approve before sending.");
+      setNotice(t("onboarding.notice.saved", "Configuration saved. Beta conversations stay supervised: Angellos drafts replies, you approve before sending."));
     } catch (error) {
       setSaveState("error");
-      setNotice(error instanceof Error ? error.message : "Unable to save onboarding configuration.");
+      setNotice(error instanceof Error ? error.message : t("onboarding.notice.saveError", "Unable to save onboarding configuration."));
     }
   }
 
@@ -125,7 +148,7 @@ export default function OnboardingPage() {
       const data = await api.playground(nextMessages, profile.calendly_url, profile.sales_page_url);
       setMessages((current) => [...current, { role: "assistant", content: data.response }]);
     } catch (error) {
-      setTestError(error instanceof Error ? error.message : "Unable to generate test response.");
+      setTestError(error instanceof Error ? error.message : t("onboarding.test.error", "Unable to generate test response."));
     } finally {
       setTestLoading(false);
     }
@@ -140,62 +163,62 @@ export default function OnboardingPage() {
           <div style={styles.brandRow}>
             <AngelosAvatar size={44} radius={12} shadow="0 8px 24px rgba(0,149,246,0.18)" />
             <div>
-              <p style={styles.eyebrow}>Angellos beta onboarding</p>
-              <h1 style={styles.title}>Configure your supervised AI setter.</h1>
+              <p style={styles.eyebrow}>{t("onboarding.header.eyebrow", "Angellos beta onboarding")}</p>
+              <h1 style={styles.title}>{t("onboarding.header.title", "Configure your supervised AI setter.")}</h1>
             </div>
           </div>
-          <Link href="/crm" style={styles.secondaryLink}>Open CRM</Link>
+          <Link href="/crm" style={styles.secondaryLink}>{t("onboarding.header.openCrm", "Open CRM")}</Link>
         </header>
 
         <div style={styles.grid}>
           <section style={styles.formColumn}>
-            <Step number="01" title="Business">
+            <Step number="01" title={t("onboarding.step.business", "Business")}>
               <div style={styles.fieldGrid}>
-                <SelectField label="Language" value={profile.language || "en"} onChange={(value) => updateProfile("language", value)} options={["en", "fr"]} />
-                <Field label="Business name" value={profile.business_name} onChange={(value) => updateProfile("business_name", value)} placeholder="Nounes Coaching" />
-                <Field label="Operator / coach name" value={profile.coach_name} onChange={(value) => updateProfile("coach_name", value)} placeholder="Nounes" />
-                <Field label="Niche" value={profile.niche} onChange={(value) => updateProfile("niche", value)} placeholder="Who Angellos should qualify" />
+                <SelectField label={t("onboarding.field.language", "Language")} value={normalizeLanguage(profile.language)} onChange={updateOnboardingLanguage} options={["en", "fr"]} />
+                <Field label={t("onboarding.field.businessName", "Business name")} value={profile.business_name} onChange={(value) => updateProfile("business_name", value)} placeholder="Nounes Coaching" />
+                <Field label={t("onboarding.field.coachName", "Operator / coach name")} value={profile.coach_name} onChange={(value) => updateProfile("coach_name", value)} placeholder="Nounes" />
+                <Field label={t("onboarding.field.niche", "Niche")} value={profile.niche} onChange={(value) => updateProfile("niche", value)} placeholder={t("onboarding.placeholder.niche", "Who Angellos should qualify")} />
               </div>
             </Step>
 
-            <Step number="02" title="Offer">
+            <Step number="02" title={t("onboarding.step.offer", "Offer")}>
               <div style={styles.fieldGrid}>
-                <Field label="Offer name" value={profile.offer_name} onChange={(value) => updateProfile("offer_name", value)} placeholder="Program name" />
-                <Field label="Price / pricing rule" value={profile.price} onChange={(value) => updateProfile("price", value)} placeholder="Price, range, or when to discuss price" />
-                <Field label="Next step" value={profile.next_step || ""} onChange={(value) => updateProfile("next_step", value)} placeholder="Book a call, send page, ask application question..." />
-                <Field label="Booking or sales page URL" value={profile.calendly_url || profile.sales_page_url || ""} onChange={(value) => {
+                <Field label={t("onboarding.field.offerName", "Offer name")} value={profile.offer_name} onChange={(value) => updateProfile("offer_name", value)} placeholder={t("onboarding.placeholder.offerName", "Program name")} />
+                <Field label={t("onboarding.field.price", "Price / pricing rule")} value={profile.price} onChange={(value) => updateProfile("price", value)} placeholder={t("onboarding.placeholder.price", "Price, range, or when to discuss price")} />
+                <Field label={t("onboarding.field.nextStep", "Next step")} value={profile.next_step || ""} onChange={(value) => updateProfile("next_step", value)} placeholder={t("onboarding.placeholder.nextStep", "Book a call, send page, ask application question...")} />
+                <Field label={t("onboarding.field.bookingUrl", "Booking or sales page URL")} value={profile.calendly_url || profile.sales_page_url || ""} onChange={(value) => {
                   updateProfile("calendly_url", value);
                   updateProfile("sales_page_url", value);
                 }} placeholder="https://..." />
               </div>
-              <TextField label="Offer promise" rows={3} value={profile.offer_promise} onChange={(value) => updateProfile("offer_promise", value)} placeholder="Concrete outcome prospects want" />
-              <TextField label="Offer format" rows={3} value={profile.offer_format} onChange={(value) => updateProfile("offer_format", value)} placeholder="Duration, calls, support, deliverables" />
+              <TextField label={t("onboarding.field.offerPromise", "Offer promise")} rows={3} value={profile.offer_promise} onChange={(value) => updateProfile("offer_promise", value)} placeholder={t("onboarding.placeholder.offerPromise", "Concrete outcome prospects want")} />
+              <TextField label={t("onboarding.field.offerFormat", "Offer format")} rows={3} value={profile.offer_format} onChange={(value) => updateProfile("offer_format", value)} placeholder={t("onboarding.placeholder.offerFormat", "Duration, calls, support, deliverables")} />
             </Step>
 
-            <Step number="03" title="Voice + rules">
-              <TextField label="Tone rules" rows={4} value={listToText(profile.tone_rules)} onChange={(value) => updateProfile("tone_rules", textToList(value))} placeholder="One tone rule per line" />
-              <TextField label="Forbidden phrases" rows={4} value={listToText(profile.forbidden_phrases)} onChange={(value) => updateProfile("forbidden_phrases", textToList(value))} placeholder="One forbidden phrase per line" />
-              <TextField label="Common objections" rows={4} value={objectionsText} onChange={setObjectionsText} placeholder="One objection or answer per line" />
-              <TextField label="Qualification rules / sales process" rows={5} value={qualificationRulesText || profile.sales_process || ""} onChange={(value) => {
+            <Step number="03" title={t("onboarding.step.voiceRules", "Voice + rules")}>
+              <TextField label={t("onboarding.field.toneRules", "Tone rules")} rows={4} value={listToText(profile.tone_rules)} onChange={(value) => updateProfile("tone_rules", textToList(value))} placeholder={t("onboarding.placeholder.toneRules", "One tone rule per line")} />
+              <TextField label={t("onboarding.field.forbiddenPhrases", "Forbidden phrases")} rows={4} value={listToText(profile.forbidden_phrases)} onChange={(value) => updateProfile("forbidden_phrases", textToList(value))} placeholder={t("onboarding.placeholder.forbiddenPhrases", "One forbidden phrase per line")} />
+              <TextField label={t("onboarding.field.commonObjections", "Common objections")} rows={4} value={objectionsText} onChange={setObjectionsText} placeholder={t("onboarding.placeholder.commonObjections", "One objection or answer per line")} />
+              <TextField label={t("onboarding.field.qualificationRules", "Qualification rules / sales process")} rows={5} value={qualificationRulesText || profile.sales_process || ""} onChange={(value) => {
                 setQualificationRulesText(value);
                 updateProfile("sales_process", value);
-              }} placeholder="Questions to ask, buying signals, when to move to the next step" />
-              <TextField label="Raw notes" rows={5} value={profile.raw_notes} onChange={(value) => updateProfile("raw_notes", value)} placeholder="Anything Angellos must know before replying" />
+              }} placeholder={t("onboarding.placeholder.qualificationRules", "Questions to ask, buying signals, when to move to the next step")} />
+              <TextField label={t("onboarding.field.rawNotes", "Raw notes")} rows={5} value={profile.raw_notes} onChange={(value) => updateProfile("raw_notes", value)} placeholder={t("onboarding.placeholder.rawNotes", "Anything Angellos must know before replying")} />
             </Step>
 
-            <Step number="04" title="Mode">
+            <Step number="04" title={t("onboarding.step.mode", "Mode")}>
               <div style={styles.modeCard}>
                 <ShieldCheck size={18} color="#f59e0b" />
                 <div>
-                  <strong>Supervised beta mode is forced.</strong>
-                  <p>Instagram/ManyChat connection happens outside this form. New tenant conversations are created in supervised mode: Angellos generates a pending reply in CRM, but no auto-send is enabled here.</p>
+                  <strong>{t("onboarding.mode.title", "Supervised beta mode is forced.")}</strong>
+                  <p>{t("onboarding.mode.body", "Instagram/ManyChat connection happens outside this form. New tenant conversations are created in supervised mode: Angellos generates a pending reply in CRM, but no auto-send is enabled here.")}</p>
                 </div>
               </div>
               <button type="button" onClick={saveConfiguration} disabled={!canSave || saveState === "saving"} style={primaryButton(!canSave || saveState === "saving")}>
                 {saveState === "saving" ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                {saveState === "saving" ? "Saving configuration..." : "Save beta configuration"}
+                {saveState === "saving" ? t("onboarding.save.saving", "Saving configuration...") : t("onboarding.save.cta", "Save beta configuration")}
               </button>
-              {!canSave && <p style={styles.helpText}>Complete all business and offer fields plus at least one voice/rule note before saving.</p>}
+              {!canSave && <p style={styles.helpText}>{t("onboarding.save.required", "Complete all business and offer fields plus at least one voice/rule note before saving.")}</p>}
               {notice && <p style={saveState === "error" ? styles.errorText : styles.successText}>{notice}</p>}
             </Step>
           </section>
@@ -204,34 +227,34 @@ export default function OnboardingPage() {
             <div style={styles.testHeader}>
               <Sparkles size={18} color="#0095F6" />
               <div>
-                <h2>05 Test conversation</h2>
-                <p>Type a fake prospect message. The response uses the saved Training Center context.</p>
+                <h2>{t("onboarding.test.title", "05 Test conversation")}</h2>
+                <p>{t("onboarding.test.help", "Type a fake prospect message. The response uses the saved Training Center context.")}</p>
               </div>
             </div>
             <div style={styles.chatBox}>
               {messages.length === 0 ? (
-                <p style={styles.emptyChat}>Save the configuration, then test a prospect message.</p>
+                <p style={styles.emptyChat}>{t("onboarding.test.empty", "Save the configuration, then test a prospect message.")}</p>
               ) : messages.map((message, index) => (
                 <div key={`${message.role}-${index}`} style={{ display: "flex", justifyContent: message.role === "assistant" ? "flex-start" : "flex-end" }}>
                   <div style={message.role === "assistant" ? styles.agentBubble : styles.userBubble}>{message.content}</div>
                 </div>
               ))}
-              {testLoading && <div style={styles.agentBubble}>Angellos is thinking...</div>}
+              {testLoading && <div style={styles.agentBubble}>{t("onboarding.test.thinking", "Angellos is thinking...")}</div>}
             </div>
             {testError && <p style={styles.errorText}>{testError}</p>}
             <textarea
               rows={3}
               value={testInput}
               onChange={(event) => setTestInput(event.target.value)}
-              placeholder="Type as a prospect..."
+              placeholder={t("onboarding.test.placeholder", "Type as a prospect...")}
               style={styles.textarea}
             />
             <button type="button" onClick={runTestConversation} disabled={saveState !== "saved" || testLoading || !testInput.trim()} style={primaryButton(saveState !== "saved" || testLoading || !testInput.trim())}>
               {testLoading ? <Loader2 size={16} className="animate-spin" /> : <MessageSquareText size={16} />}
-              Generate test response
+              {t("onboarding.test.generate", "Generate test response")}
             </button>
             <Link href="/crm" style={styles.crmCta}>
-              Open supervised CRM <ArrowRight size={16} />
+              {t("onboarding.test.openSupervisedCrm", "Open supervised CRM")} <ArrowRight size={16} />
             </Link>
           </aside>
         </div>

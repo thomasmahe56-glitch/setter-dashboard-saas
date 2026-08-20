@@ -42,12 +42,12 @@ export default function SignupPage() {
       password,
     });
     if (error) {
-      setError(error.message || "Unable to create beta account.");
+      setError(error.message || "Impossible de créer le compte bêta.");
       setLoading(false);
       return;
     }
     if (!data.session) {
-      setMessage("Account created. Check your inbox to confirm your email, then sign in to continue onboarding.");
+      setMessage("Compte créé. Confirme ton email dans ta boîte de réception, puis connecte-toi pour continuer l’onboarding.");
       setLoading(false);
       return;
     }
@@ -60,26 +60,26 @@ export default function SignupPage() {
       <section style={styles.card}>
         <div style={styles.header}>
           <AngelosAvatar size={92} radius={24} shadow="0 8px 32px rgba(0,149,246,0.18)" />
-          <p style={styles.eyebrow}>Supervised beta access</p>
-          <h1 style={styles.title}>Create your {appConfig.agentName} beta account</h1>
-          <p style={styles.subtitle}>Configure your Training Center, test Angellos, then use the CRM in supervised mode.</p>
+          <p style={styles.eyebrow}>Accès bêta supervisé</p>
+          <h1 style={styles.title}>Créer ton compte bêta {appConfig.agentName}</h1>
+          <p style={styles.subtitle}>Configure ton Training Center, teste Angellos, puis utilise le CRM en mode supervisé.</p>
         </div>
         <form onSubmit={handleSignup} style={styles.form}>
           <label style={styles.label}>Email
             <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required style={styles.input} />
           </label>
-          <label style={styles.label}>Password
-            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Minimum 8 characters" minLength={8} required style={styles.input} />
+          <label style={styles.label}>Mot de passe
+            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Minimum 8 caractères" minLength={8} required style={styles.input} />
           </label>
           {error && <p style={styles.error}>{error}</p>}
           {message && <p style={styles.success}>{message}</p>}
           <button type="submit" disabled={loading || !email.trim() || password.length < 8} style={primaryButton(loading || !email.trim() || password.length < 8)}>
             {loading ? <Loader2 size={16} className="animate-spin" /> : null}
-            {loading ? "Creating account..." : "Start beta onboarding"}
+            {loading ? "Création du compte..." : "Démarrer l’onboarding bêta"}
             {!loading ? <ArrowRight size={16} /> : null}
           </button>
         </form>
-        <p style={styles.footer}>Already have access? <Link href="/login?next=/onboarding" style={styles.link}>Sign in</Link></p>
+        <p style={styles.footer}>Déjà accès ? <Link href="/login?next=/onboarding" style={styles.link}>Se connecter</Link></p>
       </section>
     </main>
   );

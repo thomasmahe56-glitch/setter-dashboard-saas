@@ -43,7 +43,7 @@ export default function LoginPage() {
       password,
     });
     if (error) {
-      setError("Incorrect email or password.");
+      setError("Email ou mot de passe incorrect.");
       setLoading(false);
       return;
     }
@@ -68,7 +68,7 @@ export default function LoginPage() {
             {appConfig.agentName}
           </h1>
           <p style={{ fontSize: 14, color: "#8e8e8e", margin: 0 }}>
-            Sign in to your dashboard
+            Connecte-toi à ton dashboard
           </p>
         </div>
 
@@ -100,7 +100,7 @@ export default function LoginPage() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#6b7280" }}>Password</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#6b7280" }}>Mot de passe</label>
               <input
                 type="password"
                 value={password}
@@ -141,14 +141,14 @@ export default function LoginPage() {
                 transition: "opacity 150ms",
               }}
             >
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? "Connexion..." : "Se connecter"}
             </button>
 
           </form>
         </div>
 
         <p style={{ textAlign: "center", fontSize: 12, color: "#9ca3af", marginTop: 20 }}>
-          New beta user? <a href="/signup" style={{ color: "#0095F6", fontWeight: 700 }}>Create your beta account</a>
+          Nouvel utilisateur bêta ? <a href="/signup" style={{ color: "#0095F6", fontWeight: 700 }}>Créer ton compte bêta</a>
         </p>
       </div>
     </div>

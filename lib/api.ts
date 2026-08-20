@@ -77,7 +77,7 @@ export interface ConversationSummary {
   channel?: "instagram" | "whatsapp" | string | null;
   external_contact_id?: string | null;
   phone_e164?: string | null;
-  automation_mode?: "auto" | "supervised" | "disabled";
+  automation_mode?: "auto" | "supervised" | "disabled" | "off" | "paused";
   pending_message?: string | null;
   pending_message_at?: string | null;
 }
@@ -85,6 +85,26 @@ export interface ConversationSummary {
 export type Conversation = ConversationSummary & {
   history: HistoryMessage[];
 };
+
+
+export interface BulkAutomationModeResult {
+  success: boolean;
+  target_mode: "auto";
+  switched_to_auto: number;
+  skipped_off_disabled: number;
+  skipped_other: number;
+  failed: number;
+  failed_ids: string[];
+}
+
+export interface BetaAiCostStatus {
+  spent_eur: number;
+  cap_eur: number;
+  remaining_eur: number;
+  guardrail_enabled: boolean;
+  cap_reached: boolean;
+  pricing_assumption: Record<string, unknown>;
+}
 
 export interface FollowUpDue {
   conversation_id: string;
@@ -288,6 +308,12 @@ export const api = {
     }),
   ignorePending: (id: string) =>
     apiFetch(`/conversations/${id}/ignore-pending`, { method: "POST" }),
+  bulkSwitchSupervisedToAuto: () =>
+    apiFetch<BulkAutomationModeResult>("/conversations/bulk-automation-mode", {
+      method: "POST",
+      body: JSON.stringify({ automation_mode: "auto" }),
+    }),
+  getBetaAiCost: () => apiFetch<BetaAiCostStatus>("/beta/ai-cost"),
   refineMessage: (id: string, instruction: string, original_message: string) =>
     apiFetch<{ refined_message: string }>(`/conversations/${id}/refine-pending`, {
       method: "POST",

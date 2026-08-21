@@ -103,6 +103,11 @@ export interface BetaAiCostStatus {
   remaining_eur: number;
   guardrail_enabled: boolean;
   cap_reached: boolean;
+  allowed_send_start?: string;
+  allowed_send_end?: string;
+  min_auto_delay_seconds?: number;
+  random_auto_delay_seconds?: number;
+  follow_up_config?: { stage: string; delay_hours: number; mode: "auto" | "manual" }[];
   pricing_assumption: Record<string, unknown>;
 }
 
@@ -121,6 +126,8 @@ export interface FollowUpDue {
   hours_since_user: number;
   last_user_message_at: string;
   last_agent_message_at: string | null;
+  queued_until?: string | null;
+  send_blocked_reason?: string | null;
 }
 
 export interface FollowUpPreview {

@@ -185,6 +185,7 @@ export default function RelancePage() {
                   const isLoadingPreview = previewLoading === item.conversation_id;
                   const isSending = sendLoading === item.conversation_id;
                   const isSent = sentIds[item.conversation_id];
+                  const isQueuedByWindow = Boolean(item.send_blocked_reason && item.queued_until);
                   return (
                     <div key={item.conversation_id} style={{ padding: "12px 0", borderTop: "1px solid #f0f0f0" }}>
                       <div className="relance-row" style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -209,6 +210,14 @@ export default function RelancePage() {
                                 {t("relance.sent", "Sent")}
                               </span>
                             )}
+                            {isQueuedByWindow && (
+                              <span style={{
+                                fontSize: 11, fontWeight: 800, color: "#92400e",
+                                background: "#fffbeb", padding: "2px 8px", borderRadius: 9999,
+                              }}>
+                                {t("relance.queuedWindow", "Queued for window")}
+                              </span>
+                            )}
                           </div>
                           <p style={{ fontSize: 12, color: "#8e8e8e", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {item.message || t("relance.noLastMessage", "No last message")} · {item.hours_since_user}{t("relance.hoursSince", "h since the last prospect message")}
@@ -216,16 +225,16 @@ export default function RelancePage() {
                         </div>
                         <div className="relance-actions" style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                           {item.stage === "auto_23h" ? (
-                            <button type="button" onClick={() => handleSendAuto23h(item)} disabled={isSending || isSent} style={{
+                            <button type="button" onClick={() => handleSendAuto23h(item)} disabled={isSending || isSent || isQueuedByWindow} style={{
                               display: "flex", alignItems: "center", gap: 5,
                               padding: "7px 10px", borderRadius: 9, border: "1px solid #1D9E75",
                               background: isSent ? "#f0fdf4" : "#1D9E75", color: isSent ? "#16a34a" : "#fff",
                               fontSize: 12, fontWeight: 800,
-                              cursor: isSending || isSent ? "not-allowed" : "pointer",
+                              cursor: isSending || isSent || isQueuedByWindow ? "not-allowed" : "pointer",
                               opacity: isSending ? 0.7 : 1,
                             }}>
                               {isSending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-                            {isSent ? t("relance.sent", "Sent") : t("relance.sendH23", "Send H23")}
+                            {isQueuedByWindow ? t("relance.queued", "Queued") : isSent ? t("relance.sent", "Sent") : t("relance.sendH23", "Send H23")}
                             </button>
                           ) : (
                             <button type="button" onClick={() => handlePreview(item)} disabled={isLoadingPreview} style={{
@@ -265,6 +274,11 @@ export default function RelancePage() {
                         }}>
                           {preview.message}
                         </div>
+                      )}
+                      {isQueuedByWindow && (
+                        <p style={{ margin: "8px 0 0 48px", fontSize: 12, color: "#92400e" }}>
+                          {t("relance.queuedHelp", "Eligible outside sending hours. Angellos will wait for the next allowed window.")}
+                        </p>
                       )}
                     </div>
                   );

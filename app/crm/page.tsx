@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useConversations } from "@/hooks/useConversations";
-import { api, Conversation, ConversationSummary } from "@/lib/api";
+import { api, BetaAiCostStatus, Conversation, ConversationSummary } from "@/lib/api";
 import { NavBar } from "@/components/NavBar";
 import { ProspectList } from "@/components/ProspectList";
 import { ConversationPanel } from "@/components/ConversationPanel";
@@ -46,11 +46,18 @@ export default function CRMPage() {
   const [mobilePanel, setMobilePanel] = useState(false);
   const [bulkAutoLoading, setBulkAutoLoading] = useState(false);
   const [bulkAutoSummary, setBulkAutoSummary] = useState<string | null>(null);
+  const [betaAiCost, setBetaAiCost] = useState<BetaAiCostStatus | null>(null);
 
   useEffect(() => {
     createClient().auth.getSession().then(({ data }) => {
       if (!data.session) window.location.href = "/login";
     });
+  }, []);
+
+  useEffect(() => {
+    api.getBetaAiCost()
+      .then(setBetaAiCost)
+      .catch(() => setBetaAiCost(null));
   }, []);
 
   useEffect(() => {
@@ -131,6 +138,14 @@ export default function CRMPage() {
             {/* Sidebar - always visible on desktop, hidden on mobile when panel is open */}
             <div className={`crm-sidebar ${mobilePanel ? "crm-mobile-hidden" : ""}`}>
               <div style={{ padding: "0 12px 10px" }}>
+                {betaAiCost && (
+                  <div style={{ border: betaAiCost.cap_reached ? "1px solid #fecaca" : "1px solid #bfdbfe", background: betaAiCost.cap_reached ? "#fef2f2" : "#eff6ff", borderRadius: 12, padding: "9px 10px", marginBottom: 8, color: betaAiCost.cap_reached ? "#991b1b" : "#1e3a8a" }}>
+                    <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 900 }}>Plafond IA bêta : {betaAiCost.spent_eur.toFixed(2)} € / {betaAiCost.cap_eur.toFixed(2)} €</p>
+                    <p style={{ margin: 0, fontSize: 11, lineHeight: 1.35 }}>
+                      {betaAiCost.cap_reached ? "Plafond atteint : les nouvelles réponses IA sont bloquées par sécurité." : `Envois auto autorisés ${betaAiCost.allowed_send_start ?? "08:00"}–${betaAiCost.allowed_send_end ?? "22:00"}.`}
+                    </p>
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={handleBulkAuto}

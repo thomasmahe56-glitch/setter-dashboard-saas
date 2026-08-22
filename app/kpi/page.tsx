@@ -71,6 +71,8 @@ export default function KPIPage() {
   const recent = [...conversations]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 8);
+  const aiCostHasProviderUsage = (aiCost?.spent_eur_provider_usage ?? 0) > 0;
+  const aiCostSourceLabel = aiCostHasProviderUsage ? "Usage provider" : "Estimé";
 
   const card: React.CSSProperties = {
     background: "#fff", borderRadius: 16,
@@ -173,6 +175,14 @@ export default function KPIPage() {
                 <span style={{ fontSize: 11, fontWeight: 800, color: aiCost?.cap_reached ? "#b91c1c" : "#15803d", background: aiCost?.cap_reached ? "#fef2f2" : "#ecfdf5", padding: "4px 8px", borderRadius: 99 }}>
                   {aiCost?.cap_reached ? "Cap atteint" : "Cap non atteint"}
                 </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: aiCostHasProviderUsage ? "#1d4ed8" : "#92400e", background: aiCostHasProviderUsage ? "#eff6ff" : "#fffbeb", padding: "4px 8px", borderRadius: 99 }}>
+                  {aiCost ? aiCostSourceLabel : "Source indisponible"}
+                </span>
+                {aiCost && !aiCostHasProviderUsage && (
+                  <span style={{ fontSize: 12, color: "#8e8e8e" }}>Fallback estimation tokens</span>
+                )}
               </div>
               <div className="kpi-card-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
                 {[

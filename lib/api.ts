@@ -99,6 +99,10 @@ export interface BulkAutomationModeResult {
 
 export interface BetaAiCostStatus {
   spent_eur: number;
+  spent_eur_provider_usage?: number;
+  spent_eur_estimated_fallback?: number;
+  cost_source_breakdown?: Record<string, number>;
+  provider_breakdown?: Record<string, number>;
   cap_eur: number;
   remaining_eur: number;
   guardrail_enabled: boolean;
@@ -109,6 +113,7 @@ export interface BetaAiCostStatus {
   random_auto_delay_seconds?: number;
   follow_up_config?: { stage: string; delay_hours: number; mode: "auto" | "manual" }[];
   pricing_assumption: Record<string, unknown>;
+  pricing_version?: string;
 }
 
 export interface FollowUpDue {

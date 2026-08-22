@@ -346,11 +346,30 @@ export const api = {
   delete: (id: string) =>
     apiFetch(`/conversations/${id}`, { method: "DELETE" }),
   getDueFollowUps: () => apiFetch<FollowUpDue[]>("/follow-ups/due"),
-  previewFollowUp: (conversationId: string, stage: FollowUpDue["stage"]) =>
-    apiFetch<FollowUpPreview>("/follow-ups/preview", {
-      method: "POST",
-      body: JSON.stringify({ conversation_id: conversationId, stage }),
-    }),
+  previewFollowUp: async (conversationId: string, stage: FollowUpDue["stage"], aiInstruction?: string) => {
+    const basePayload = { conversation_id: conversationId, stage };
+    const instruction = aiInstruction?.trim();
+
+    if (!instruction) {
+      return apiFetch<FollowUpPreview>("/follow-ups/preview", {
+        method: "POST",
+        body: JSON.stringify(basePayload),
+      });
+    }
+
+    try {
+      return await apiFetch<FollowUpPreview>("/follow-ups/preview", {
+        method: "POST",
+        body: JSON.stringify({ ...basePayload, ai_instruction: instruction }),
+      });
+    } catch (error) {
+      console.warn("[api:follow-up-preview] retrying without ai_instruction", error);
+      return apiFetch<FollowUpPreview>("/follow-ups/preview", {
+        method: "POST",
+        body: JSON.stringify(basePayload),
+      });
+    }
+  },
   sendAuto23hFollowUp: (conversationId: string) =>
     apiFetch<FollowUpSendResult>(`/follow-ups/${conversationId}/send-auto-23h`, {
       method: "POST",

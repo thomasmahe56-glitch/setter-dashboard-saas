@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Check, Clock3, Copy, ExternalLink, Loader2, Send, Sparkles } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
@@ -8,6 +8,24 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { api, ApiAuthError, FollowUpDue, FollowUpPreview } from "@/lib/api";
 import { getInstagramHandle } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
+
+type RelanceStage = FollowUpDue["stage"];
+
+const STAGE_STORAGE_KEY = "angellos.relance.instructions.v1";
+
+const DEFAULT_STAGE_INSTRUCTIONS: Record<RelanceStage, string> = {
+  auto_23h: "Relance courte, naturelle, sans pression. Rester dans la continuité du dernier échange. Une seule question maximum.",
+  j3: "Relance contextuelle. Reprendre le dernier point mentionné par le prospect et rouvrir doucement la discussion.",
+  j10: "Relance plus douce, orientée valeur. Ne pas forcer la vente. Proposer une aide ou une clarification.",
+  j30: "Dernier check-in. Ton léger, pas insistant. Accepter que la conversation soit froide.",
+};
+
+const STAGE_TITLES: Record<RelanceStage, string> = {
+  auto_23h: "Auto 23h",
+  j3: "D+3",
+  j10: "D+10",
+  j30: "D+30",
+};
 
 function RelanceSkeleton() {
   return (
@@ -35,12 +53,33 @@ export default function RelancePage() {
   const [sendLoading, setSendLoading] = useState<string | null>(null);
   const [sentIds, setSentIds] = useState<Record<string, boolean>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selectedStage, setSelectedStage] = useState<RelanceStage>("auto_23h");
+  const [stageInstructions, setStageInstructions] = useState<Record<RelanceStage, string>>(DEFAULT_STAGE_INSTRUCTIONS);
+  const [instructionsLoaded, setInstructionsLoaded] = useState(false);
 
   useEffect(() => {
     createClient().auth.getSession().then(({ data }) => {
       if (!data.session) window.location.href = "/login";
     });
   }, []);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(STAGE_STORAGE_KEY);
+      if (!saved) return;
+      const parsed = JSON.parse(saved) as Partial<Record<RelanceStage, string>>;
+      setStageInstructions({ ...DEFAULT_STAGE_INSTRUCTIONS, ...parsed });
+    } catch {
+      setStageInstructions(DEFAULT_STAGE_INSTRUCTIONS);
+    } finally {
+      setInstructionsLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!instructionsLoaded) return;
+    window.localStorage.setItem(STAGE_STORAGE_KEY, JSON.stringify(stageInstructions));
+  }, [instructionsLoaded, stageInstructions]);
 
   const refresh = useCallback(async () => {
     try {
@@ -67,7 +106,7 @@ export default function RelancePage() {
   async function handlePreview(item: FollowUpDue) {
     setPreviewLoading(item.conversation_id);
     try {
-      const preview = await api.previewFollowUp(item.conversation_id, item.stage);
+      const preview = await api.previewFollowUp(item.conversation_id, item.stage, stageInstructions[item.stage]);
       setPreviews((prev) => ({ ...prev, [item.conversation_id]: preview }));
     } finally {
       setPreviewLoading(null);
@@ -108,12 +147,16 @@ export default function RelancePage() {
     boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
   };
 
-  const stepCards = [
-    { title: "Auto 23h", label: t("relance.automatic", "Automatic"), color: "#1D9E75", icon: Send, body: t("relance.auto23hBody", "Short follow-up before the Instagram/ManyChat window closes.") },
-    { title: "D+3", label: t("relance.assisted", "Assisted"), color: "#0095F6", icon: Sparkles, body: t("relance.d3Body", "The AI prepares a contextual follow-up to send manually.") },
-    { title: "D+10", label: t("relance.assisted", "Assisted"), color: "#8b5cf6", icon: Clock3, body: t("relance.d10Body", "Gentle follow-up, more open door than sales pressure.") },
-    { title: "D+30", label: t("relance.assisted", "Assisted"), color: "#d946ef", icon: Clock3, body: t("relance.d30Body", "Final check-in for cold conversations, one last touch.") },
-  ];
+  const stepCards = useMemo(() => [
+    { stage: "auto_23h" as const, title: "Auto 23h", label: t("relance.automatic", "Automatic"), color: "#1D9E75", icon: Send, mode: t("relance.auto23hMode", "Envoi automatique dans la fenêtre Meta") },
+    { stage: "j3" as const, title: "D+3", label: t("relance.assisted", "Assisted"), color: "#0095F6", icon: Sparkles, mode: t("relance.manualMode", "Préparation assistée, envoi manuel") },
+    { stage: "j10" as const, title: "D+10", label: t("relance.assisted", "Assisted"), color: "#8b5cf6", icon: Clock3, mode: t("relance.manualMode", "Préparation assistée, envoi manuel") },
+    { stage: "j30" as const, title: "D+30", label: t("relance.assisted", "Assisted"), color: "#d946ef", icon: Clock3, mode: t("relance.manualMode", "Préparation assistée, envoi manuel") },
+  ], [t]);
+
+  const selectedStageCard = stepCards.find((step) => step.stage === selectedStage) || stepCards[0];
+  const filteredFollowUps = followUps.filter((item) => item.stage === selectedStage);
+  const selectedCount = filteredFollowUps.length;
 
   return (
     <div className="app-page">
@@ -144,8 +187,18 @@ export default function RelancePage() {
             </div>
 
             <div className="relance-step-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12, marginBottom: 16 }}>
-              {stepCards.map(({ title, label, color, icon: Icon, body }) => (
-                <div key={title} style={card}>
+              {stepCards.map(({ stage, title, label, color, icon: Icon, mode }) => {
+                const isSelected = selectedStage === stage;
+                const count = followUps.filter((item) => item.stage === stage).length;
+                return (
+                <button key={title} type="button" onClick={() => setSelectedStage(stage)} aria-pressed={isSelected} style={{
+                  ...card,
+                  border: isSelected ? `2px solid ${color}` : "1px solid #f0f0f0",
+                  boxShadow: isSelected ? `0 12px 30px ${color}22` : card.boxShadow,
+                  textAlign: "left",
+                  cursor: "pointer",
+                  transform: isSelected ? "translateY(-1px)" : "none",
+                }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
                     <div style={{ width: 34, height: 34, borderRadius: 10, background: `${color}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <Icon size={17} color={color} />
@@ -155,30 +208,68 @@ export default function RelancePage() {
                     </span>
                   </div>
                   <h2 style={{ fontSize: 17, fontWeight: 800, color: "#0a0a0a", margin: "0 0 6px" }}>{title}</h2>
-                  <p style={{ fontSize: 13, lineHeight: 1.45, color: "#8e8e8e", margin: 0 }}>{body}</p>
+                  <p style={{ fontSize: 12, fontWeight: 800, lineHeight: 1.45, color, margin: "0 0 8px" }}>{count} {count > 1 ? t("relance.followUpPlural", "follow-ups") : t("relance.followUpSingular", "follow-up")}</p>
+                  <p style={{ fontSize: 13, lineHeight: 1.45, color: "#8e8e8e", margin: 0 }}>{mode}</p>
+                </button>
+              );})}
+            </div>
+
+            <div style={{ ...card, marginBottom: 16, border: `1px solid ${selectedStageCard.color}22` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 900, color: selectedStageCard.color, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: 0.4 }}>
+                    {STAGE_TITLES[selectedStage]} sélectionné · {selectedCount} {selectedCount > 1 ? t("relance.followUpPlural", "relances") : t("relance.followUpSingular", "relance")} à traiter
+                  </p>
+                  <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0a0a0a", margin: 0 }}>{t("relance.aiInstructions", "Instructions IA")}</h2>
                 </div>
-              ))}
+                <span style={{ fontSize: 11, fontWeight: 800, color: selectedStageCard.color, background: `${selectedStageCard.color}14`, padding: "4px 10px", borderRadius: 9999, flexShrink: 0 }}>
+                  {selectedStage === "auto_23h" ? t("relance.automatic", "Automatique") : t("relance.assisted", "Assisté")}
+                </span>
+              </div>
+              <textarea
+                value={stageInstructions[selectedStage]}
+                onChange={(event) => setStageInstructions((prev) => ({ ...prev, [selectedStage]: event.target.value }))}
+                aria-label={`Instructions IA ${STAGE_TITLES[selectedStage]}`}
+                style={{
+                  width: "100%",
+                  minHeight: 92,
+                  resize: "vertical",
+                  border: "1px solid #e5e5e5",
+                  borderRadius: 12,
+                  padding: "10px 12px",
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  color: "#262626",
+                  outline: "none",
+                  background: "#fafafa",
+                }}
+              />
+              <p style={{ fontSize: 12, color: "#8e8e8e", margin: "8px 0 0" }}>
+                {t("relance.instructionsHelp", "Ces indications sont utilisées quand Angelos génère la relance de ce preset. Modifiables ici, conservées sur cet appareil.")}
+              </p>
             </div>
 
             <div style={{ ...card, marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 14 }}>
                 <div>
-                  <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0a0a0a", margin: "0 0 3px" }}>{t("relance.due", "Due follow-ups")}</h2>
+                  <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0a0a0a", margin: "0 0 3px" }}>{t("relance.due", "Due follow-ups")} · {STAGE_TITLES[selectedStage]}</h2>
                   <p style={{ fontSize: 12, color: "#8e8e8e", margin: 0 }}>
-                    {t("relance.dueHelp", "Calculated from message history. Older conversations without timestamps use their creation date.")}
+                    {selectedStage === "auto_23h"
+                      ? t("relance.auto23hListHelp", "Relances automatiques encore dans la fenêtre Meta de 24 h.")
+                      : t("relance.manualListHelp", "Relances préparées par IA : le coach copie puis envoie manuellement.")}
                   </p>
                 </div>
                 <span style={{ fontSize: 12, fontWeight: 700, color: "#8e8e8e", background: "#f5f5f5", padding: "4px 10px", borderRadius: 9999 }}>
-                  {followUps.length} {followUps.length > 1 ? t("relance.followUpPlural", "follow-ups") : t("relance.followUpSingular", "follow-up")}
+                  {selectedCount} {selectedCount > 1 ? t("relance.followUpPlural", "follow-ups") : t("relance.followUpSingular", "follow-up")}
                 </span>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {followUps.length === 0 ? (
+                {filteredFollowUps.length === 0 ? (
                   <div style={{ padding: "30px 12px", textAlign: "center", color: "#8e8e8e", fontSize: 13 }}>
-                    {t("relance.empty", "No follow-ups due right now.")}
+                    {t("relance.emptyStage", `Aucune relance éligible en ${STAGE_TITLES[selectedStage]} pour l’instant.`)}
                   </div>
-                ) : followUps.map((item) => {
+                ) : filteredFollowUps.map((item) => {
                   const handle = getInstagramHandle(item);
                   const name = handle || item.display_name || item.username || "?";
                   const preview = previews[item.conversation_id];

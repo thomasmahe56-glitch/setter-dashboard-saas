@@ -28,6 +28,7 @@ import {
   AgentSalesRules,
   api,
   AvatarGenerateInput,
+  BetaAiCostStatus,
   ChatMessage,
   KnowledgeExtraction,
   PromptRefinementResult,
@@ -88,6 +89,7 @@ type Notice = { kind: "success" | "error"; text: string } | null;
 type AutosaveKey = "profile" | "avatarInput" | "avatar" | "rules";
 type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 type AutosaveState = Record<AutosaveKey, { status: AutosaveStatus; savedAt: number | null }>;
+type BetaConversationCounts = { eligible: number; protected: number };
 
 const PROMPT_REFINEMENT_CHIPS = [
   "Too long",
@@ -281,6 +283,13 @@ export default function TrainingCenterPage() {
   const [restoreLoading, setRestoreLoading] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showAllRules, setShowAllRules] = useState(false);
+  const [betaAiCost, setBetaAiCost] = useState<BetaAiCostStatus | null>(null);
+  const [betaSettingsStart, setBetaSettingsStart] = useState("08:00");
+  const [betaSettingsEnd, setBetaSettingsEnd] = useState("22:00");
+  const [betaSettingsSaving, setBetaSettingsSaving] = useState(false);
+  const [bulkAutoLoading, setBulkAutoLoading] = useState(false);
+  const [bulkAutoSummary, setBulkAutoSummary] = useState<string | null>(null);
+  const [betaConversationCounts, setBetaConversationCounts] = useState<BetaConversationCounts | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [autosave, setAutosave] = useState<AutosaveState>({
     profile: { status: "idle", savedAt: null },
@@ -342,6 +351,25 @@ export default function TrainingCenterPage() {
     }
   }, []);
 
+  const loadBetaActivationState = useCallback(async () => {
+    try {
+      const [cost, summaries] = await Promise.all([
+        api.getBetaAiCost(),
+        api.getConversationSummaries(),
+      ]);
+      setBetaAiCost(cost);
+      setBetaSettingsStart(cost.allowed_send_start || "08:00");
+      setBetaSettingsEnd(cost.allowed_send_end || "22:00");
+      setBetaConversationCounts({
+        eligible: summaries.filter((conversation) => (conversation.automation_mode ?? "supervised") === "supervised").length,
+        protected: summaries.filter((conversation) => ["disabled", "off", "paused"].includes(conversation.automation_mode ?? "")).length,
+      });
+    } catch {
+      setBetaAiCost(null);
+      setBetaConversationCounts(null);
+    }
+  }, []);
+
   useEffect(() => {
     loadTrainingCenter();
   }, [loadTrainingCenter]);
@@ -349,6 +377,10 @@ export default function TrainingCenterPage() {
   useEffect(() => {
     loadPromptVersions();
   }, [loadPromptVersions]);
+
+  useEffect(() => {
+    loadBetaActivationState();
+  }, [loadBetaActivationState]);
 
   useEffect(() => {
     const chatContainer = chatScrollRef.current;
@@ -805,6 +837,49 @@ export default function TrainingCenterPage() {
     }
   }
 
+  async function handleSaveBetaSettings() {
+    if (betaSettingsSaving) return;
+    setBetaSettingsSaving(true);
+    setNotice(null);
+    try {
+      const updated = await api.updateBetaSettings({
+        allowed_send_start: betaSettingsStart,
+        allowed_send_end: betaSettingsEnd,
+      });
+      setBetaAiCost(updated);
+      setBetaSettingsStart(updated.allowed_send_start || "08:00");
+      setBetaSettingsEnd(updated.allowed_send_end || "22:00");
+      setNotice({ kind: "success", text: "Beta guardrails saved." });
+    } catch (error) {
+      setNotice({ kind: "error", text: error instanceof Error ? error.message : "Unable to save beta settings" });
+    } finally {
+      setBetaSettingsSaving(false);
+    }
+  }
+
+  async function handleBulkAuto() {
+    if (bulkAutoLoading) return;
+    const confirmationDetails = betaConversationCounts
+      ? `${betaConversationCounts.eligible} supervisées éligibles · ${betaConversationCounts.protected} Off/disabled/paused protégées`
+      : "Les conversations Off / disabled / paused restent protégées.";
+    const confirmed = window.confirm(
+      `Basculer les conversations supervisées en auto ?\n\n${confirmationDetails}\n\nLe backend vérifie la protection avant toute modification.`
+    );
+    if (!confirmed) return;
+    setBulkAutoLoading(true);
+    setBulkAutoSummary(null);
+    setNotice(null);
+    try {
+      const result = await api.bulkSwitchSupervisedToAuto();
+      setBulkAutoSummary(`${result.switched_to_auto} basculées · ${result.skipped_off_disabled} protégées · ${result.failed} échecs`);
+      await loadBetaActivationState();
+    } catch (error) {
+      setBulkAutoSummary(error instanceof Error ? error.message : "Bulk auto failed");
+    } finally {
+      setBulkAutoLoading(false);
+    }
+  }
+
   async function handleRestorePrompt(versionId: string) {
     setRestoreLoading(versionId);
     setNotice(null);
@@ -996,6 +1071,13 @@ export default function TrainingCenterPage() {
                 promptVersions={promptVersions}
                 versionsLoading={versionsLoading}
                 restoreLoading={restoreLoading}
+                betaAiCost={betaAiCost}
+                betaSettingsStart={betaSettingsStart}
+                betaSettingsEnd={betaSettingsEnd}
+                betaSettingsSaving={betaSettingsSaving}
+                bulkAutoLoading={bulkAutoLoading}
+                bulkAutoSummary={bulkAutoSummary}
+                betaConversationCounts={betaConversationCounts}
                 messagesEndRef={messagesEndRef}
                 chatScrollRef={chatScrollRef}
                 inputRef={chatInputRef}
@@ -1020,6 +1102,10 @@ export default function TrainingCenterPage() {
                 onCancelRefinement={() => setRefinePreview(null)}
                 onRestorePrompt={handleRestorePrompt}
                 onRebuild={handleRebuildPrompt}
+                onBetaSettingsStartChange={setBetaSettingsStart}
+                onBetaSettingsEndChange={setBetaSettingsEnd}
+                onSaveBetaSettings={handleSaveBetaSettings}
+                onBulkAuto={handleBulkAuto}
               />
             )}
 
@@ -1681,6 +1767,13 @@ function LaunchStep({
   promptVersions,
   versionsLoading,
   restoreLoading,
+  betaAiCost,
+  betaSettingsStart,
+  betaSettingsEnd,
+  betaSettingsSaving,
+  bulkAutoLoading,
+  bulkAutoSummary,
+  betaConversationCounts,
   messagesEndRef,
   chatScrollRef,
   inputRef,
@@ -1695,6 +1788,10 @@ function LaunchStep({
   onCancelRefinement,
   onRestorePrompt,
   onRebuild,
+  onBetaSettingsStartChange,
+  onBetaSettingsEndChange,
+  onSaveBetaSettings,
+  onBulkAuto,
 }: {
   profile: TrainingProfileInput;
   avatar: AgentAvatar;
@@ -1714,6 +1811,13 @@ function LaunchStep({
   promptVersions: PromptVersion[];
   versionsLoading: boolean;
   restoreLoading: string | null;
+  betaAiCost: BetaAiCostStatus | null;
+  betaSettingsStart: string;
+  betaSettingsEnd: string;
+  betaSettingsSaving: boolean;
+  bulkAutoLoading: boolean;
+  bulkAutoSummary: string | null;
+  betaConversationCounts: BetaConversationCounts | null;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   chatScrollRef: React.RefObject<HTMLDivElement | null>;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
@@ -1728,6 +1832,10 @@ function LaunchStep({
   onCancelRefinement: () => void;
   onRestorePrompt: (versionId: string) => void;
   onRebuild: () => void;
+  onBetaSettingsStartChange: (value: string) => void;
+  onBetaSettingsEndChange: (value: string) => void;
+  onSaveBetaSettings: () => void;
+  onBulkAuto: () => void;
 }) {
   const { t } = useI18n();
   const avatarTextCount = [
@@ -1813,7 +1921,109 @@ function LaunchStep({
           onRestore={onRestorePrompt}
         />
       </div>
+
+      <BetaActivationPanel
+        betaAiCost={betaAiCost}
+        start={betaSettingsStart}
+        end={betaSettingsEnd}
+        savingSettings={betaSettingsSaving}
+        bulkLoading={bulkAutoLoading}
+        bulkSummary={bulkAutoSummary}
+        counts={betaConversationCounts}
+        disabled={disabled}
+        onStartChange={onBetaSettingsStartChange}
+        onEndChange={onBetaSettingsEndChange}
+        onSaveSettings={onSaveBetaSettings}
+        onBulkAuto={onBulkAuto}
+      />
     </div>
+  );
+}
+
+function BetaActivationPanel({
+  betaAiCost,
+  start,
+  end,
+  savingSettings,
+  bulkLoading,
+  bulkSummary,
+  counts,
+  disabled,
+  onStartChange,
+  onEndChange,
+  onSaveSettings,
+  onBulkAuto,
+}: {
+  betaAiCost: BetaAiCostStatus | null;
+  start: string;
+  end: string;
+  savingSettings: boolean;
+  bulkLoading: boolean;
+  bulkSummary: string | null;
+  counts: BetaConversationCounts | null;
+  disabled: boolean;
+  onStartChange: (value: string) => void;
+  onEndChange: (value: string) => void;
+  onSaveSettings: () => void;
+  onBulkAuto: () => void;
+}) {
+  const busy = disabled || savingSettings || bulkLoading;
+  const spent = betaAiCost ? betaAiCost.spent_eur.toFixed(2) : "—";
+  const cap = betaAiCost ? betaAiCost.cap_eur.toFixed(2) : "—";
+  const currentStart = betaAiCost?.allowed_send_start || "08:00";
+  const currentEnd = betaAiCost?.allowed_send_end || "22:00";
+
+  return (
+    <section style={styles.betaActivationPanel}>
+      <div style={styles.toolHeader}>
+        <div>
+          <h3 style={styles.cardTitle}>Activation bêta</h3>
+          <p style={styles.toolText}>Contrôles de passage en auto et garde-fous d’envoi pour la bêta Nounes.</p>
+        </div>
+        <span style={betaAiCost?.cap_reached ? styles.betaCapDanger : styles.betaCapBadge}>
+          Plafond IA bêta : {spent} € / {cap} €
+        </span>
+      </div>
+
+      {betaAiCost?.cap_reached && (
+        <p style={styles.inlineError}>Plafond atteint : les nouvelles réponses IA sont bloquées par sécurité.</p>
+      )}
+
+      <div style={styles.betaGuardrailGrid}>
+        <div>
+          <p style={styles.betaLabel}>Fenêtre actuelle</p>
+          <p style={styles.betaValue}>{currentStart}–{currentEnd}</p>
+          <p style={styles.toolText}>24/24 possible avec 00:00–23:59. Défaut safe : 08:00–22:00.</p>
+        </div>
+        <label style={styles.betaTimeLabel}>
+          allowed_send_start
+          <input type="time" value={start} disabled={busy} onChange={(event) => onStartChange(event.target.value)} style={styles.betaTimeInput} />
+        </label>
+        <label style={styles.betaTimeLabel}>
+          allowed_send_end
+          <input type="time" value={end} disabled={busy} onChange={(event) => onEndChange(event.target.value)} style={styles.betaTimeInput} />
+        </label>
+        <button type="button" onClick={onSaveSettings} disabled={busy} style={secondaryButton(busy)}>
+          {savingSettings ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+          {savingSettings ? "Sauvegarde..." : "Sauver les garde-fous"}
+        </button>
+      </div>
+
+      <div style={styles.betaBulkRow}>
+        <div>
+          <p style={styles.betaLabel}>Passage auto en lot</p>
+          <p style={styles.toolText}>
+            {counts ? `${counts.eligible} supervisées éligibles · ${counts.protected} Off/disabled/paused protégées.` : "Les conversations Off / disabled / paused restent protégées."}
+          </p>
+          <p style={styles.toolText}>Les conversations Off / disabled / paused restent protégées.</p>
+        </div>
+        <button type="button" onClick={onBulkAuto} disabled={busy} style={primaryButton(busy)}>
+          {bulkLoading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+          {bulkLoading ? "Bascule en cours..." : "Basculer les conversations supervisées en auto"}
+        </button>
+      </div>
+      {bulkSummary && <p style={styles.betaBulkSummary}>{bulkSummary}</p>}
+    </section>
   );
 }
 
@@ -3478,6 +3688,82 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#64748b",
     fontSize: 12,
     lineHeight: 1.4,
+  },
+  betaActivationPanel: {
+    border: "1px solid #bfdbfe",
+    borderRadius: 8,
+    padding: 16,
+    background: "#eff6ff",
+    marginTop: 14,
+    display: "grid",
+    gap: 14,
+  },
+  betaCapBadge: {
+    borderRadius: 999,
+    background: "#dbeafe",
+    color: "#1e3a8a",
+    padding: "6px 10px",
+    fontSize: 12,
+    fontWeight: 900,
+    whiteSpace: "nowrap",
+  },
+  betaCapDanger: {
+    borderRadius: 999,
+    background: "#fee2e2",
+    color: "#991b1b",
+    padding: "6px 10px",
+    fontSize: 12,
+    fontWeight: 900,
+    whiteSpace: "nowrap",
+  },
+  betaGuardrailGrid: {
+    display: "grid",
+    gridTemplateColumns: "minmax(180px, 1fr) repeat(2, minmax(120px, 150px)) auto",
+    gap: 12,
+    alignItems: "end",
+  },
+  betaLabel: {
+    margin: 0,
+    color: "#1e3a8a",
+    fontSize: 12,
+    fontWeight: 850,
+  },
+  betaValue: {
+    margin: "4px 0 0",
+    color: "#0f172a",
+    fontSize: 16,
+    fontWeight: 900,
+  },
+  betaTimeLabel: {
+    display: "grid",
+    gap: 6,
+    color: "#1e3a8a",
+    fontSize: 11,
+    fontWeight: 850,
+  },
+  betaTimeInput: {
+    border: "1px solid #bfdbfe",
+    borderRadius: 8,
+    background: "#fff",
+    color: "#0f172a",
+    padding: "9px 10px",
+    fontSize: 13,
+    fontFamily: "inherit",
+  },
+  betaBulkRow: {
+    borderTop: "1px solid #bfdbfe",
+    paddingTop: 12,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  betaBulkSummary: {
+    margin: 0,
+    color: "#166534",
+    fontSize: 12,
+    fontWeight: 850,
   },
   chatBox: {
     height: 300,

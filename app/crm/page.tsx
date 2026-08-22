@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useConversations } from "@/hooks/useConversations";
-import { api, BetaAiCostStatus, Conversation, ConversationSummary } from "@/lib/api";
+import { api, Conversation, ConversationSummary } from "@/lib/api";
 import { NavBar } from "@/components/NavBar";
 import { ProspectList } from "@/components/ProspectList";
 import { ConversationPanel } from "@/components/ConversationPanel";
@@ -44,9 +44,7 @@ export default function CRMPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [mobilePanel, setMobilePanel] = useState(false);
-  const [bulkAutoLoading, setBulkAutoLoading] = useState(false);
-  const [bulkAutoSummary, setBulkAutoSummary] = useState<string | null>(null);
-  const [betaAiCost, setBetaAiCost] = useState<BetaAiCostStatus | null>(null);
+
 
   useEffect(() => {
     createClient().auth.getSession().then(({ data }) => {
@@ -54,11 +52,6 @@ export default function CRMPage() {
     });
   }, []);
 
-  useEffect(() => {
-    api.getBetaAiCost()
-      .then(setBetaAiCost)
-      .catch(() => setBetaAiCost(null));
-  }, []);
 
   useEffect(() => {
     if (!selectedId) {
@@ -100,30 +93,6 @@ export default function CRMPage() {
     setSelectedDetail(null); setSelectedId(null); setMobilePanel(false);
   }
 
-  async function handleBulkAuto() {
-    if (bulkAutoLoading) return;
-    const eligibleLocal = conversations.filter((c) => (c.automation_mode ?? "supervised") === "supervised").length;
-    const offLocal = conversations.filter((c) => ["disabled", "off", "paused"].includes(c.automation_mode ?? "")).length;
-    const confirmed = window.confirm(
-      t(
-        "crm.bulkAuto.confirm",
-        "Switch supervised conversations to auto? Conversations Off/disabled/paused stay Off."
-      ) + `\n\n${eligibleLocal} supervisées éligibles · ${offLocal} Off/disabled ignorées`
-    );
-    if (!confirmed) return;
-    setBulkAutoLoading(true);
-    setBulkAutoSummary(null);
-    try {
-      const result = await api.bulkSwitchSupervisedToAuto();
-      setConversations((prev) => prev.map((c) => (c.automation_mode ?? "supervised") === "supervised" ? { ...c, automation_mode: "auto" } : c));
-      setSelectedDetail((prev) => prev && (prev.automation_mode ?? "supervised") === "supervised" ? { ...prev, automation_mode: "auto" } : prev);
-      setBulkAutoSummary(`${result.switched_to_auto} basculées en auto · ${result.skipped_off_disabled} Off/disabled conservées · ${result.failed} échecs`);
-    } catch (error) {
-      setBulkAutoSummary(error instanceof Error ? error.message : t("crm.bulkAuto.error", "Bulk auto failed"));
-    } finally {
-      setBulkAutoLoading(false);
-    }
-  }
 
   return (
     <div className="crm-page">
@@ -137,25 +106,6 @@ export default function CRMPage() {
           <div className="crm-card">
             {/* Sidebar - always visible on desktop, hidden on mobile when panel is open */}
             <div className={`crm-sidebar ${mobilePanel ? "crm-mobile-hidden" : ""}`}>
-              <div style={{ padding: "0 12px 10px" }}>
-                {betaAiCost && (
-                  <div style={{ border: betaAiCost.cap_reached ? "1px solid #fecaca" : "1px solid #bfdbfe", background: betaAiCost.cap_reached ? "#fef2f2" : "#eff6ff", borderRadius: 12, padding: "9px 10px", marginBottom: 8, color: betaAiCost.cap_reached ? "#991b1b" : "#1e3a8a" }}>
-                    <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 900 }}>Plafond IA bêta : {betaAiCost.spent_eur.toFixed(2)} € / {betaAiCost.cap_eur.toFixed(2)} €</p>
-                    <p style={{ margin: 0, fontSize: 11, lineHeight: 1.35 }}>
-                      {betaAiCost.cap_reached ? "Plafond atteint : les nouvelles réponses IA sont bloquées par sécurité." : `Envois auto autorisés ${betaAiCost.allowed_send_start ?? "08:00"}–${betaAiCost.allowed_send_end ?? "22:00"}.`}
-                    </p>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={handleBulkAuto}
-                  disabled={bulkAutoLoading}
-                  style={{ width: "100%", border: "1px solid #bbf7d0", background: bulkAutoLoading ? "#f0fdf4" : "#16a34a", color: bulkAutoLoading ? "#16a34a" : "#fff", borderRadius: 12, padding: "9px 12px", fontSize: 12, fontWeight: 800, cursor: bulkAutoLoading ? "not-allowed" : "pointer" }}
-                >
-                  {bulkAutoLoading ? t("crm.bulkAuto.loading", "Bascule en cours...") : t("crm.bulkAuto.cta", "Basculer les supervisées en auto")}
-                </button>
-                {bulkAutoSummary && <p style={{ margin: "6px 0 0", fontSize: 11, color: bulkAutoSummary.includes("échecs") ? "#475569" : "#16a34a", lineHeight: 1.4 }}>{bulkAutoSummary}</p>}
-              </div>
               <ProspectList conversations={conversations} selectedId={selectedId} onSelect={handleSelect} />
             </div>
 

@@ -321,6 +321,11 @@ export const api = {
       body: JSON.stringify({ automation_mode: "auto" }),
     }),
   getBetaAiCost: () => apiFetch<BetaAiCostStatus>("/beta/ai-cost"),
+  updateBetaSettings: (settings: Pick<BetaAiCostStatus, "allowed_send_start" | "allowed_send_end">) =>
+    apiFetch<BetaAiCostStatus>("/beta/settings", {
+      method: "PATCH",
+      body: JSON.stringify(settings),
+    }),
   refineMessage: (id: string, instruction: string, original_message: string) =>
     apiFetch<{ refined_message: string }>(`/conversations/${id}/refine-pending`, {
       method: "POST",

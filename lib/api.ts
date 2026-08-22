@@ -144,6 +144,24 @@ export interface FollowUpSendResult {
   sent: boolean;
 }
 
+export interface FollowUpScheduleConfig {
+  auto_hours: number;
+  manual1_days: number;
+  manual2_days: number;
+  manual3_days: number;
+}
+
+function followUpScheduleQuery(config?: FollowUpScheduleConfig): string {
+  if (!config) return "";
+  const params = new URLSearchParams({
+    auto_hours: String(config.auto_hours),
+    manual1_days: String(config.manual1_days),
+    manual2_days: String(config.manual2_days),
+    manual3_days: String(config.manual3_days),
+  });
+  return `?${params.toString()}`;
+}
+
 export interface TrainingProfileInput {
   language: "en" | "fr" | string;
   business_name: string;
@@ -345,9 +363,9 @@ export const api = {
     ),
   delete: (id: string) =>
     apiFetch(`/conversations/${id}`, { method: "DELETE" }),
-  getDueFollowUps: () => apiFetch<FollowUpDue[]>("/follow-ups/due"),
-  previewFollowUp: async (conversationId: string, stage: FollowUpDue["stage"], aiInstruction?: string) => {
-    const basePayload = { conversation_id: conversationId, stage };
+  getDueFollowUps: (config?: FollowUpScheduleConfig) => apiFetch<FollowUpDue[]>(`/follow-ups/due${followUpScheduleQuery(config)}`),
+  previewFollowUp: async (conversationId: string, stage: FollowUpDue["stage"], aiInstruction?: string, delayLabel?: string) => {
+    const basePayload = { conversation_id: conversationId, stage, ...(delayLabel ? { follow_up_delay_label: delayLabel } : {}) };
     const instruction = aiInstruction?.trim();
 
     if (!instruction) {
@@ -370,9 +388,13 @@ export const api = {
       });
     }
   },
-  sendAuto23hFollowUp: (conversationId: string) =>
-    apiFetch<FollowUpSendResult>(`/follow-ups/${conversationId}/send-auto-23h`, {
+  sendAuto23hFollowUp: (conversationId: string, config?: FollowUpScheduleConfig, aiInstruction?: string, delayLabel?: string) =>
+    apiFetch<FollowUpSendResult>(`/follow-ups/${conversationId}/send-auto-23h${followUpScheduleQuery(config)}`, {
       method: "POST",
+      body: JSON.stringify({
+        ...(aiInstruction?.trim() ? { ai_instruction: aiInstruction.trim() } : {}),
+        ...(delayLabel ? { follow_up_delay_label: delayLabel } : {}),
+      }),
     }),
   getTrainingCenter: (developerMode = false) =>
     apiFetch<TrainingCenterState>(`/agent/training-center${developerMode ? "?developer_mode=true" : ""}`),

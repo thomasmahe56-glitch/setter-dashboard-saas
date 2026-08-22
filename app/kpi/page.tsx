@@ -179,7 +179,6 @@ export default function KPIPage() {
                   { label: "Utilisé", value: aiCost ? `${aiCost.spent_eur.toFixed(2)} €` : "—" },
                   { label: "Cap", value: aiCost ? `${aiCost.cap_eur.toFixed(2)} €` : "—" },
                   { label: "Restant", value: aiCost ? `${aiCost.remaining_eur.toFixed(2)} €` : "—" },
-                  { label: "Fenêtre d’envoi", value: `${aiCost?.allowed_send_start || "08:00"}–${aiCost?.allowed_send_end || "22:00"}` },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ border: "1px solid #f0f0f0", borderRadius: 12, padding: 14, background: "#fbfbfb" }}>
                     <p style={{ fontSize: 12, color: "#8e8e8e", margin: "0 0 6px" }}>{label}</p>

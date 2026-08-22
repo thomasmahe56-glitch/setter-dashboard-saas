@@ -30,6 +30,7 @@ import {
   AvatarGenerateInput,
   BetaAiCostStatus,
   ChatMessage,
+  ConversationSummary,
   KnowledgeExtraction,
   PromptRefinementResult,
   PromptVersion,
@@ -86,6 +87,11 @@ const EMPTY_AVATAR_INPUT: AvatarGenerateInput = {
 type StepId = "business" | "knowledge" | "behavior" | "avatar-input" | "avatar-review" | "rules" | "launch";
 type MainStepId = Exclude<StepId, "rules">;
 type Notice = { kind: "success" | "error"; text: string } | null;
+type BulkAutomationCounts = {
+  supervisedEligible: number;
+  protectedConversations: number;
+  otherConversations: number;
+} | null;
 type AutosaveKey = "profile" | "avatarInput" | "avatar" | "rules";
 type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 type AutosaveState = Record<AutosaveKey, { status: AutosaveStatus; savedAt: number | null }>;
@@ -295,6 +301,9 @@ export default function TrainingCenterPage() {
   const [minAutoDelayMinutes, setMinAutoDelayMinutes] = useState(0);
   const [randomAutoDelayMinutes, setRandomAutoDelayMinutes] = useState(0);
   const [betaSettingsSaving, setBetaSettingsSaving] = useState(false);
+  const [bulkAutomationCounts, setBulkAutomationCounts] = useState<BulkAutomationCounts>(null);
+  const [bulkAutomationSwitching, setBulkAutomationSwitching] = useState(false);
+  const [bulkAutomationResult, setBulkAutomationResult] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [autosave, setAutosave] = useState<AutosaveState>({
     profile: { status: "idle", savedAt: null },
@@ -369,6 +378,15 @@ export default function TrainingCenterPage() {
     }
   }, []);
 
+  const loadBulkAutomationCounts = useCallback(async () => {
+    try {
+      const summaries = await api.getConversationSummaries();
+      setBulkAutomationCounts(calculateBulkAutomationCounts(summaries));
+    } catch {
+      setBulkAutomationCounts(null);
+    }
+  }, []);
+
   useEffect(() => {
     loadTrainingCenter();
   }, [loadTrainingCenter]);
@@ -380,6 +398,10 @@ export default function TrainingCenterPage() {
   useEffect(() => {
     loadBehaviorSettings();
   }, [loadBehaviorSettings]);
+
+  useEffect(() => {
+    loadBulkAutomationCounts();
+  }, [loadBulkAutomationCounts]);
 
   useEffect(() => {
     const chatContainer = chatScrollRef.current;
@@ -860,6 +882,32 @@ export default function TrainingCenterPage() {
     }
   }
 
+  async function handleBulkSwitchSupervisedToAuto() {
+    if (bulkAutomationSwitching) return;
+
+    const confirmation = bulkAutomationCounts
+      ? `Passer ${bulkAutomationCounts.supervisedEligible} conversation(s) supervisée(s) éligible(s) en auto ?\n\n${bulkAutomationCounts.protectedConversations} conversation(s) Off / disabled / paused resteront protégées.${bulkAutomationCounts.otherConversations ? `\n${bulkAutomationCounts.otherConversations} conversation(s) déjà auto ou non éligible(s) ne seront pas modifiées.` : ""}`
+      : "Passer les conversations supervisées en auto ?\n\nSeules les conversations en mode Supervisé seront basculées. Les conversations Off / disabled / paused restent protégées.";
+
+    if (!window.confirm(confirmation)) return;
+
+    setBulkAutomationSwitching(true);
+    setBulkAutomationResult(null);
+    setNotice(null);
+    try {
+      const result = await api.bulkSwitchSupervisedToAuto();
+      const protectedCount = result.skipped_off_disabled + result.skipped_other;
+      const resultText = `${result.switched_to_auto} basculées · ${protectedCount} protégées · ${result.failed} échecs`;
+      setBulkAutomationResult(resultText);
+      setNotice({ kind: result.failed ? "error" : "success", text: resultText });
+      await loadBulkAutomationCounts();
+    } catch (error) {
+      setNotice({ kind: "error", text: error instanceof Error ? error.message : "Impossible de basculer les conversations supervisées" });
+    } finally {
+      setBulkAutomationSwitching(false);
+    }
+  }
+
 
   async function handleRestorePrompt(versionId: string) {
     setRestoreLoading(versionId);
@@ -987,12 +1035,16 @@ export default function TrainingCenterPage() {
                 minDelayMinutes={minAutoDelayMinutes}
                 randomDelayMinutes={randomAutoDelayMinutes}
                 saving={betaSettingsSaving}
+                bulkCounts={bulkAutomationCounts}
+                bulkSwitching={bulkAutomationSwitching}
+                bulkResult={bulkAutomationResult}
                 disabled={actionDisabled}
                 onStartChange={setBetaSettingsStart}
                 onEndChange={setBetaSettingsEnd}
                 onMinDelayMinutesChange={setMinAutoDelayMinutes}
                 onRandomDelayMinutesChange={setRandomAutoDelayMinutes}
                 onSave={handleSaveBetaSettings}
+                onBulkSwitch={handleBulkSwitchSupervisedToAuto}
               />
             )}
 
@@ -1898,12 +1950,16 @@ function BehaviorSettingsStep({
   minDelayMinutes,
   randomDelayMinutes,
   saving,
+  bulkCounts,
+  bulkSwitching,
+  bulkResult,
   disabled,
   onStartChange,
   onEndChange,
   onMinDelayMinutesChange,
   onRandomDelayMinutesChange,
   onSave,
+  onBulkSwitch,
 }: {
   betaAiCost: BetaAiCostStatus | null;
   start: string;
@@ -1911,14 +1967,19 @@ function BehaviorSettingsStep({
   minDelayMinutes: number;
   randomDelayMinutes: number;
   saving: boolean;
+  bulkCounts: BulkAutomationCounts;
+  bulkSwitching: boolean;
+  bulkResult: string | null;
   disabled: boolean;
   onStartChange: (value: string) => void;
   onEndChange: (value: string) => void;
   onMinDelayMinutesChange: (value: number) => void;
   onRandomDelayMinutesChange: (value: number) => void;
   onSave: () => void;
+  onBulkSwitch: () => void;
 }) {
   const busy = disabled || saving;
+  const bulkBusy = disabled || bulkSwitching;
   const currentStart = betaAiCost?.allowed_send_start || "08:00";
   const currentEnd = betaAiCost?.allowed_send_end || "22:00";
 
@@ -1991,6 +2052,31 @@ function BehaviorSettingsStep({
             />
           </label>
         </div>
+      </section>
+
+      <section style={styles.advancedActionCard}>
+        <div style={styles.toolHeader}>
+          <div>
+            <p style={styles.advancedActionEyebrow}>Action avancée</p>
+            <h3 style={styles.cardTitle}>Passer les conversations validées en auto</h3>
+            <p style={styles.toolText}>
+              Seules les conversations en mode Supervisé seront basculées. Les conversations Off / disabled / paused restent protégées.
+            </p>
+            {bulkCounts ? (
+              <p style={styles.advancedActionMeta}>
+                {bulkCounts.supervisedEligible} supervisées éligibles · {bulkCounts.protectedConversations} protégées
+                {bulkCounts.otherConversations ? ` · ${bulkCounts.otherConversations} déjà auto/autres` : ""}
+              </p>
+            ) : (
+              <p style={styles.advancedActionMeta}>Le décompte précis sera confirmé par le backend avant modification.</p>
+            )}
+          </div>
+          <button type="button" onClick={onBulkSwitch} disabled={bulkBusy} style={secondaryButton(bulkBusy)}>
+            {bulkSwitching ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+            {bulkSwitching ? "Bascule..." : "Passer les conversations validées en auto"}
+          </button>
+        </div>
+        {bulkResult && <p style={styles.advancedActionResult}>{bulkResult}</p>}
       </section>
     </div>
   );
@@ -2756,6 +2842,19 @@ function parseNonNegativeMinutes(value: string): number {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed) || parsed < 0) return 0;
   return Math.min(parsed, 1440);
+}
+
+function calculateBulkAutomationCounts(summaries: ConversationSummary[]): NonNullable<BulkAutomationCounts> {
+  return summaries.reduce(
+    (counts, conversation) => {
+      const mode = conversation.automation_mode || "supervised";
+      if (mode === "supervised") counts.supervisedEligible += 1;
+      else if (["disabled", "off", "paused"].includes(mode)) counts.protectedConversations += 1;
+      else counts.otherConversations += 1;
+      return counts;
+    },
+    { supervisedEligible: 0, protectedConversations: 0, otherConversations: 0 },
+  );
 }
 
 function stepDone(step: StepId, checklist: ReturnType<typeof buildTrainingChecklist>): boolean {
@@ -3705,6 +3804,33 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     fontWeight: 750,
     lineHeight: 1.45,
+  },
+  advancedActionCard: {
+    border: "1px solid #e6ebf2",
+    borderRadius: 8,
+    padding: 14,
+    background: "#f8fafc",
+    marginTop: 14,
+  },
+  advancedActionEyebrow: {
+    margin: "0 0 4px",
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: 900,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase" as const,
+  },
+  advancedActionMeta: {
+    margin: "10px 0 0",
+    color: "#475569",
+    fontSize: 12,
+    fontWeight: 800,
+  },
+  advancedActionResult: {
+    margin: 0,
+    color: "#166534",
+    fontSize: 12,
+    fontWeight: 850,
   },
   betaActivationPanel: {
     border: "1px solid #bfdbfe",

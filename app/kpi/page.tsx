@@ -1,10 +1,10 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Users, MessageCircle, Send, Phone, Award, TrendingUp } from "lucide-react";
 import { useConversations } from "@/hooks/useConversations";
 import { NavBar } from "@/components/NavBar";
-import { Status } from "@/lib/api";
+import { api, type BetaAiCostStatus, Status } from "@/lib/api";
 import { getInstagramHandle, STATUS_LABELS, STATUS_BAR_COLOR, timeAgo } from "@/lib/utils";
 import { Avatar } from "@/components/Avatar";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -42,12 +42,25 @@ function KPISkeleton() {
 export default function KPIPage() {
   const { t } = useI18n();
   const { conversations, loading, lastRefresh, refresh } = useConversations();
+  const [aiCost, setAiCost] = useState<BetaAiCostStatus | null>(null);
 
   useEffect(() => {
     createClient().auth.getSession().then(({ data }) => {
       if (!data.session) window.location.href = "/login";
     });
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getBetaAiCost()
+      .then((status) => {
+        if (!cancelled) setAiCost(status);
+      })
+      .catch(() => {
+        if (!cancelled) setAiCost(null);
+      });
+    return () => { cancelled = true; };
+  }, [lastRefresh]);
 
   const total = conversations.length;
   const counts = FUNNEL.reduce((acc, { status }) => {
@@ -149,6 +162,31 @@ export default function KPIPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div style={{ ...card, marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
+                <div>
+                  <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0a0a0a", margin: "0 0 4px" }}>Coût IA/API</h2>
+                  <p style={{ fontSize: 12, color: "#8e8e8e", margin: 0 }}>Suivi du plafond d’utilisation Angellos</p>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 800, color: aiCost?.cap_reached ? "#b91c1c" : "#15803d", background: aiCost?.cap_reached ? "#fef2f2" : "#ecfdf5", padding: "4px 8px", borderRadius: 99 }}>
+                  {aiCost?.cap_reached ? "Cap atteint" : "Cap non atteint"}
+                </span>
+              </div>
+              <div className="kpi-card-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+                {[
+                  { label: "Utilisé", value: aiCost ? `${aiCost.spent_eur.toFixed(2)} €` : "—" },
+                  { label: "Cap", value: aiCost ? `${aiCost.cap_eur.toFixed(2)} €` : "—" },
+                  { label: "Restant", value: aiCost ? `${aiCost.remaining_eur.toFixed(2)} €` : "—" },
+                  { label: "Fenêtre d’envoi", value: `${aiCost?.allowed_send_start || "08:00"}–${aiCost?.allowed_send_end || "22:00"}` },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ border: "1px solid #f0f0f0", borderRadius: 12, padding: 14, background: "#fbfbfb" }}>
+                    <p style={{ fontSize: 12, color: "#8e8e8e", margin: "0 0 6px" }}>{label}</p>
+                    <p style={{ fontSize: 22, fontWeight: 800, color: "#0095F6", margin: 0 }}>{value}</p>
+                  </div>
+                ))}
+            </div>
             </div>
 
             {/* Recent */}

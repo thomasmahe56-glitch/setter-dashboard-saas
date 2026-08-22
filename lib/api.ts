@@ -321,7 +321,7 @@ export const api = {
       body: JSON.stringify({ automation_mode: "auto" }),
     }),
   getBetaAiCost: () => apiFetch<BetaAiCostStatus>("/beta/ai-cost"),
-  updateBetaSettings: (settings: Pick<BetaAiCostStatus, "allowed_send_start" | "allowed_send_end">) =>
+  updateBetaSettings: (settings: Pick<BetaAiCostStatus, "allowed_send_start" | "allowed_send_end" | "min_auto_delay_seconds" | "random_auto_delay_seconds">) =>
     apiFetch<BetaAiCostStatus>("/beta/settings", {
       method: "PATCH",
       body: JSON.stringify(settings),

@@ -83,14 +83,12 @@ const EMPTY_AVATAR_INPUT: AvatarGenerateInput = {
   bad_fit: "",
 };
 
-type StepId = "business" | "knowledge" | "avatar-input" | "avatar-review" | "rules" | "launch";
+type StepId = "business" | "knowledge" | "behavior" | "avatar-input" | "avatar-review" | "rules" | "launch";
 type MainStepId = Exclude<StepId, "rules">;
 type Notice = { kind: "success" | "error"; text: string } | null;
 type AutosaveKey = "profile" | "avatarInput" | "avatar" | "rules";
 type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 type AutosaveState = Record<AutosaveKey, { status: AutosaveStatus; savedAt: number | null }>;
-type BetaConversationCounts = { eligible: number; protected: number };
-
 const PROMPT_REFINEMENT_CHIPS = [
   "Too long",
   "Too salesy",
@@ -125,8 +123,16 @@ const STEP_DEFINITIONS: {
     description: "Upload docs or paste transcripts.",
   },
   {
-    id: "avatar-input",
+    id: "behavior",
     eyebrow: "03",
+    titleKey: "training.step.behavior.title",
+    title: "Comportement d’Angellos",
+    descriptionKey: "training.step.behavior.description",
+    description: "Horaires et rythme des messages.",
+  },
+  {
+    id: "avatar-input",
+    eyebrow: "04",
     titleKey: "training.step.avatar-input.title",
     title: "Ideal customer",
     descriptionKey: "training.step.avatar-input.description",
@@ -134,7 +140,7 @@ const STEP_DEFINITIONS: {
   },
   {
     id: "avatar-review",
-    eyebrow: "04",
+    eyebrow: "05",
     titleKey: "training.step.avatar-review.title",
     title: "Customer notes",
     descriptionKey: "training.step.avatar-review.description",
@@ -142,7 +148,7 @@ const STEP_DEFINITIONS: {
   },
   {
     id: "launch",
-    eyebrow: "04",
+    eyebrow: "06",
     titleKey: "training.step.launch.title",
     title: "Test Angellos",
     descriptionKey: "training.step.launch.description",
@@ -286,10 +292,9 @@ export default function TrainingCenterPage() {
   const [betaAiCost, setBetaAiCost] = useState<BetaAiCostStatus | null>(null);
   const [betaSettingsStart, setBetaSettingsStart] = useState("08:00");
   const [betaSettingsEnd, setBetaSettingsEnd] = useState("22:00");
+  const [minAutoDelayMinutes, setMinAutoDelayMinutes] = useState(0);
+  const [randomAutoDelayMinutes, setRandomAutoDelayMinutes] = useState(0);
   const [betaSettingsSaving, setBetaSettingsSaving] = useState(false);
-  const [bulkAutoLoading, setBulkAutoLoading] = useState(false);
-  const [bulkAutoSummary, setBulkAutoSummary] = useState<string | null>(null);
-  const [betaConversationCounts, setBetaConversationCounts] = useState<BetaConversationCounts | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [autosave, setAutosave] = useState<AutosaveState>({
     profile: { status: "idle", savedAt: null },
@@ -351,22 +356,16 @@ export default function TrainingCenterPage() {
     }
   }, []);
 
-  const loadBetaActivationState = useCallback(async () => {
+  const loadBehaviorSettings = useCallback(async () => {
     try {
-      const [cost, summaries] = await Promise.all([
-        api.getBetaAiCost(),
-        api.getConversationSummaries(),
-      ]);
+      const cost = await api.getBetaAiCost();
       setBetaAiCost(cost);
       setBetaSettingsStart(cost.allowed_send_start || "08:00");
       setBetaSettingsEnd(cost.allowed_send_end || "22:00");
-      setBetaConversationCounts({
-        eligible: summaries.filter((conversation) => (conversation.automation_mode ?? "supervised") === "supervised").length,
-        protected: summaries.filter((conversation) => ["disabled", "off", "paused"].includes(conversation.automation_mode ?? "")).length,
-      });
+      setMinAutoDelayMinutes(secondsToMinutes(cost.min_auto_delay_seconds));
+      setRandomAutoDelayMinutes(secondsToMinutes(cost.random_auto_delay_seconds));
     } catch {
       setBetaAiCost(null);
-      setBetaConversationCounts(null);
     }
   }, []);
 
@@ -379,8 +378,8 @@ export default function TrainingCenterPage() {
   }, [loadPromptVersions]);
 
   useEffect(() => {
-    loadBetaActivationState();
-  }, [loadBetaActivationState]);
+    loadBehaviorSettings();
+  }, [loadBehaviorSettings]);
 
   useEffect(() => {
     const chatContainer = chatScrollRef.current;
@@ -845,40 +844,22 @@ export default function TrainingCenterPage() {
       const updated = await api.updateBetaSettings({
         allowed_send_start: betaSettingsStart,
         allowed_send_end: betaSettingsEnd,
+        min_auto_delay_seconds: minutesToSeconds(minAutoDelayMinutes),
+        random_auto_delay_seconds: minutesToSeconds(randomAutoDelayMinutes),
       });
       setBetaAiCost(updated);
       setBetaSettingsStart(updated.allowed_send_start || "08:00");
       setBetaSettingsEnd(updated.allowed_send_end || "22:00");
-      setNotice({ kind: "success", text: "Beta guardrails saved." });
+      setMinAutoDelayMinutes(secondsToMinutes(updated.min_auto_delay_seconds));
+      setRandomAutoDelayMinutes(secondsToMinutes(updated.random_auto_delay_seconds));
+      setNotice({ kind: "success", text: "Réglages du comportement sauvegardés." });
     } catch (error) {
-      setNotice({ kind: "error", text: error instanceof Error ? error.message : "Unable to save beta settings" });
+      setNotice({ kind: "error", text: error instanceof Error ? error.message : "Unable to save behavior settings" });
     } finally {
       setBetaSettingsSaving(false);
     }
   }
 
-  async function handleBulkAuto() {
-    if (bulkAutoLoading) return;
-    const confirmationDetails = betaConversationCounts
-      ? `${betaConversationCounts.eligible} supervisées éligibles · ${betaConversationCounts.protected} Off/disabled/paused protégées`
-      : "Les conversations Off / disabled / paused restent protégées.";
-    const confirmed = window.confirm(
-      `Basculer les conversations supervisées en auto ?\n\n${confirmationDetails}\n\nLe backend vérifie la protection avant toute modification.`
-    );
-    if (!confirmed) return;
-    setBulkAutoLoading(true);
-    setBulkAutoSummary(null);
-    setNotice(null);
-    try {
-      const result = await api.bulkSwitchSupervisedToAuto();
-      setBulkAutoSummary(`${result.switched_to_auto} basculées · ${result.skipped_off_disabled} protégées · ${result.failed} échecs`);
-      await loadBetaActivationState();
-    } catch (error) {
-      setBulkAutoSummary(error instanceof Error ? error.message : "Bulk auto failed");
-    } finally {
-      setBulkAutoLoading(false);
-    }
-  }
 
   async function handleRestorePrompt(versionId: string) {
     setRestoreLoading(versionId);
@@ -998,6 +979,23 @@ export default function TrainingCenterPage() {
               />
             )}
 
+            {activeStep === "behavior" && (
+              <BehaviorSettingsStep
+                betaAiCost={betaAiCost}
+                start={betaSettingsStart}
+                end={betaSettingsEnd}
+                minDelayMinutes={minAutoDelayMinutes}
+                randomDelayMinutes={randomAutoDelayMinutes}
+                saving={betaSettingsSaving}
+                disabled={actionDisabled}
+                onStartChange={setBetaSettingsStart}
+                onEndChange={setBetaSettingsEnd}
+                onMinDelayMinutesChange={setMinAutoDelayMinutes}
+                onRandomDelayMinutesChange={setRandomAutoDelayMinutes}
+                onSave={handleSaveBetaSettings}
+              />
+            )}
+
             {activeStep === "avatar-input" && (
               <AvatarInputStep
                 input={avatarInput}
@@ -1071,13 +1069,6 @@ export default function TrainingCenterPage() {
                 promptVersions={promptVersions}
                 versionsLoading={versionsLoading}
                 restoreLoading={restoreLoading}
-                betaAiCost={betaAiCost}
-                betaSettingsStart={betaSettingsStart}
-                betaSettingsEnd={betaSettingsEnd}
-                betaSettingsSaving={betaSettingsSaving}
-                bulkAutoLoading={bulkAutoLoading}
-                bulkAutoSummary={bulkAutoSummary}
-                betaConversationCounts={betaConversationCounts}
                 messagesEndRef={messagesEndRef}
                 chatScrollRef={chatScrollRef}
                 inputRef={chatInputRef}
@@ -1102,10 +1093,6 @@ export default function TrainingCenterPage() {
                 onCancelRefinement={() => setRefinePreview(null)}
                 onRestorePrompt={handleRestorePrompt}
                 onRebuild={handleRebuildPrompt}
-                onBetaSettingsStartChange={setBetaSettingsStart}
-                onBetaSettingsEndChange={setBetaSettingsEnd}
-                onSaveBetaSettings={handleSaveBetaSettings}
-                onBulkAuto={handleBulkAuto}
               />
             )}
 
@@ -1767,13 +1754,6 @@ function LaunchStep({
   promptVersions,
   versionsLoading,
   restoreLoading,
-  betaAiCost,
-  betaSettingsStart,
-  betaSettingsEnd,
-  betaSettingsSaving,
-  bulkAutoLoading,
-  bulkAutoSummary,
-  betaConversationCounts,
   messagesEndRef,
   chatScrollRef,
   inputRef,
@@ -1788,10 +1768,6 @@ function LaunchStep({
   onCancelRefinement,
   onRestorePrompt,
   onRebuild,
-  onBetaSettingsStartChange,
-  onBetaSettingsEndChange,
-  onSaveBetaSettings,
-  onBulkAuto,
 }: {
   profile: TrainingProfileInput;
   avatar: AgentAvatar;
@@ -1811,13 +1787,6 @@ function LaunchStep({
   promptVersions: PromptVersion[];
   versionsLoading: boolean;
   restoreLoading: string | null;
-  betaAiCost: BetaAiCostStatus | null;
-  betaSettingsStart: string;
-  betaSettingsEnd: string;
-  betaSettingsSaving: boolean;
-  bulkAutoLoading: boolean;
-  bulkAutoSummary: string | null;
-  betaConversationCounts: BetaConversationCounts | null;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   chatScrollRef: React.RefObject<HTMLDivElement | null>;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
@@ -1832,10 +1801,6 @@ function LaunchStep({
   onCancelRefinement: () => void;
   onRestorePrompt: (versionId: string) => void;
   onRebuild: () => void;
-  onBetaSettingsStartChange: (value: string) => void;
-  onBetaSettingsEndChange: (value: string) => void;
-  onSaveBetaSettings: () => void;
-  onBulkAuto: () => void;
 }) {
   const { t } = useI18n();
   const avatarTextCount = [
@@ -1922,108 +1887,112 @@ function LaunchStep({
         />
       </div>
 
-      <BetaActivationPanel
-        betaAiCost={betaAiCost}
-        start={betaSettingsStart}
-        end={betaSettingsEnd}
-        savingSettings={betaSettingsSaving}
-        bulkLoading={bulkAutoLoading}
-        bulkSummary={bulkAutoSummary}
-        counts={betaConversationCounts}
-        disabled={disabled}
-        onStartChange={onBetaSettingsStartChange}
-        onEndChange={onBetaSettingsEndChange}
-        onSaveSettings={onSaveBetaSettings}
-        onBulkAuto={onBulkAuto}
-      />
     </div>
   );
 }
 
-function BetaActivationPanel({
+function BehaviorSettingsStep({
   betaAiCost,
   start,
   end,
-  savingSettings,
-  bulkLoading,
-  bulkSummary,
-  counts,
+  minDelayMinutes,
+  randomDelayMinutes,
+  saving,
   disabled,
   onStartChange,
   onEndChange,
-  onSaveSettings,
-  onBulkAuto,
+  onMinDelayMinutesChange,
+  onRandomDelayMinutesChange,
+  onSave,
 }: {
   betaAiCost: BetaAiCostStatus | null;
   start: string;
   end: string;
-  savingSettings: boolean;
-  bulkLoading: boolean;
-  bulkSummary: string | null;
-  counts: BetaConversationCounts | null;
+  minDelayMinutes: number;
+  randomDelayMinutes: number;
+  saving: boolean;
   disabled: boolean;
   onStartChange: (value: string) => void;
   onEndChange: (value: string) => void;
-  onSaveSettings: () => void;
-  onBulkAuto: () => void;
+  onMinDelayMinutesChange: (value: number) => void;
+  onRandomDelayMinutesChange: (value: number) => void;
+  onSave: () => void;
 }) {
-  const busy = disabled || savingSettings || bulkLoading;
-  const spent = betaAiCost ? betaAiCost.spent_eur.toFixed(2) : "—";
-  const cap = betaAiCost ? betaAiCost.cap_eur.toFixed(2) : "—";
+  const busy = disabled || saving;
   const currentStart = betaAiCost?.allowed_send_start || "08:00";
   const currentEnd = betaAiCost?.allowed_send_end || "22:00";
 
   return (
-    <section style={styles.betaActivationPanel}>
-      <div style={styles.toolHeader}>
-        <div>
-          <h3 style={styles.cardTitle}>Activation bêta</h3>
-          <p style={styles.toolText}>Contrôles de passage en auto et garde-fous d’envoi pour la bêta Nounes.</p>
-        </div>
-        <span style={betaAiCost?.cap_reached ? styles.betaCapDanger : styles.betaCapBadge}>
-          Plafond IA bêta : {spent} € / {cap} €
-        </span>
-      </div>
+    <div>
+      <SectionHeader
+        eyebrow="Comportement d’Angellos"
+        title="Régler quand Angellos envoie ses messages"
+        description="Définis la fenêtre d’envoi automatique et le rythme entre deux messages. Ces réglages font partie du comportement produit d’Angellos."
+        action={
+          <button type="button" onClick={onSave} disabled={busy} style={primaryButton(busy)}>
+            {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+            {saving ? "Sauvegarde..." : "Sauver le comportement"}
+          </button>
+        }
+      />
 
-      {betaAiCost?.cap_reached && (
-        <p style={styles.inlineError}>Plafond atteint : les nouvelles réponses IA sont bloquées par sécurité.</p>
-      )}
-
-      <div style={styles.betaGuardrailGrid}>
-        <div>
-          <p style={styles.betaLabel}>Fenêtre actuelle</p>
-          <p style={styles.betaValue}>{currentStart}–{currentEnd}</p>
-          <p style={styles.toolText}>24/24 possible avec 00:00–23:59. Défaut safe : 08:00–22:00.</p>
+      <section style={styles.toolCard}>
+        <div style={styles.toolHeader}>
+          <div>
+            <h3 style={styles.cardTitle}>Horaires d’envoi automatique</h3>
+            <p style={styles.toolText}>Fenêtre actuelle : {currentStart}–{currentEnd}. Pour autoriser 24/24, utilise 00:00–23:59.</p>
+          </div>
         </div>
-        <label style={styles.betaTimeLabel}>
-          allowed_send_start
-          <input type="time" value={start} disabled={busy} onChange={(event) => onStartChange(event.target.value)} style={styles.betaTimeInput} />
-        </label>
-        <label style={styles.betaTimeLabel}>
-          allowed_send_end
-          <input type="time" value={end} disabled={busy} onChange={(event) => onEndChange(event.target.value)} style={styles.betaTimeInput} />
-        </label>
-        <button type="button" onClick={onSaveSettings} disabled={busy} style={secondaryButton(busy)}>
-          {savingSettings ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-          {savingSettings ? "Sauvegarde..." : "Sauver les garde-fous"}
-        </button>
-      </div>
-
-      <div style={styles.betaBulkRow}>
-        <div>
-          <p style={styles.betaLabel}>Passage auto en lot</p>
-          <p style={styles.toolText}>
-            {counts ? `${counts.eligible} supervisées éligibles · ${counts.protected} Off/disabled/paused protégées.` : "Les conversations Off / disabled / paused restent protégées."}
-          </p>
-          <p style={styles.toolText}>Les conversations Off / disabled / paused restent protégées.</p>
+        <div style={styles.behaviorGrid}>
+          <label style={styles.behaviorLabel}>
+            Début
+            <input type="time" value={start} disabled={busy} onChange={(event) => onStartChange(event.target.value)} style={styles.behaviorInput} />
+          </label>
+          <label style={styles.behaviorLabel}>
+            Fin
+            <input type="time" value={end} disabled={busy} onChange={(event) => onEndChange(event.target.value)} style={styles.behaviorInput} />
+          </label>
         </div>
-        <button type="button" onClick={onBulkAuto} disabled={busy} style={primaryButton(busy)}>
-          {bulkLoading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-          {bulkLoading ? "Bascule en cours..." : "Basculer les conversations supervisées en auto"}
-        </button>
-      </div>
-      {bulkSummary && <p style={styles.betaBulkSummary}>{bulkSummary}</p>}
-    </section>
+        <p style={styles.behaviorHelp}>Si une relance est prête hors fenêtre, Angellos attend la prochaine fenêtre autorisée avant d’envoyer.</p>
+      </section>
+
+      <section style={{ ...styles.toolCard, marginTop: 14 }}>
+        <div style={styles.toolHeader}>
+          <div>
+            <h3 style={styles.cardTitle}>Rythme entre les messages</h3>
+            <p style={styles.toolText}>Exemple : mets 1 minute de délai minimum et 9 minutes de délai aléatoire pour obtenir un envoi entre 1 et 10 minutes.</p>
+          </div>
+        </div>
+        <div style={styles.behaviorGrid}>
+          <label style={styles.behaviorLabel}>
+            Délai minimum (minutes)
+            <input
+              type="number"
+              min={0}
+              max={1440}
+              step={1}
+              value={minDelayMinutes}
+              disabled={busy}
+              onChange={(event) => onMinDelayMinutesChange(parseNonNegativeMinutes(event.target.value))}
+              style={styles.behaviorInput}
+            />
+          </label>
+          <label style={styles.behaviorLabel}>
+            Délai aléatoire max additionnel (minutes)
+            <input
+              type="number"
+              min={0}
+              max={1440}
+              step={1}
+              value={randomDelayMinutes}
+              disabled={busy}
+              onChange={(event) => onRandomDelayMinutesChange(parseNonNegativeMinutes(event.target.value))}
+              style={styles.behaviorInput}
+            />
+          </label>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -2775,9 +2744,24 @@ function formatRelativeDate(value: string): string {
   return `Updated ${days} day${days === 1 ? "" : "s"} ago`;
 }
 
+function secondsToMinutes(value?: number): number {
+  return Math.max(0, Math.round((value || 0) / 60));
+}
+
+function minutesToSeconds(value: number): number {
+  return Math.max(0, Math.round(value || 0)) * 60;
+}
+
+function parseNonNegativeMinutes(value: string): number {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  return Math.min(parsed, 1440);
+}
+
 function stepDone(step: StepId, checklist: ReturnType<typeof buildTrainingChecklist>): boolean {
   if (step === "business") return checklist.business === "Complete";
   if (step === "knowledge") return checklist.business === "Complete";
+  if (step === "behavior") return true;
   if (step === "avatar-input") return checklist.business === "Complete";
   if (step === "avatar-review") return checklist.avatar === "Complete";
   if (step === "rules") return checklist.rules === "Complete";
@@ -3688,6 +3672,39 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#64748b",
     fontSize: 12,
     lineHeight: 1.4,
+  },
+  behaviorGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: 12,
+    alignItems: "end",
+  },
+  behaviorLabel: {
+    display: "grid",
+    gap: 6,
+    color: "#0f172a",
+    fontSize: 12,
+    fontWeight: 850,
+  },
+  behaviorInput: {
+    border: "1px solid #dfe5ee",
+    borderRadius: 8,
+    background: "#fff",
+    color: "#0f172a",
+    padding: "10px 12px",
+    fontSize: 13,
+    fontFamily: "inherit",
+  },
+  behaviorHelp: {
+    margin: "12px 0 0",
+    border: "1px solid #dbeafe",
+    borderRadius: 8,
+    background: "#eff6ff",
+    color: "#1d4ed8",
+    padding: "10px 12px",
+    fontSize: 12,
+    fontWeight: 750,
+    lineHeight: 1.45,
   },
   betaActivationPanel: {
     border: "1px solid #bfdbfe",

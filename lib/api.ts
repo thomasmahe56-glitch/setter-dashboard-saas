@@ -281,6 +281,23 @@ export interface SimulatorScenario {
   prospect_profile: string;
 }
 
+export type SimulatorQualityJudgeDecision = "pass" | "retry" | "human_review";
+
+export interface SimulatorQualityJudge {
+  overall_score: number;
+  decision: SimulatorQualityJudgeDecision;
+  scores: {
+    naturalite: number;
+    contexte: number;
+    progression: number;
+    timing: number;
+    risque_ia: number;
+    risque_business: number;
+  };
+  why: string;
+  suggested_rewrite: string;
+}
+
 export interface SimulatorResult extends SimulatorScenario {
   scenario_id: string;
   transcript: (HistoryMessage & { sent?: boolean; source?: string })[];
@@ -295,6 +312,7 @@ export interface SimulatorResult extends SimulatorScenario {
     manque_contexte: boolean;
   };
   recommendation: "pass" | "retry" | "human_review";
+  quality_judge?: SimulatorQualityJudge;
 }
 
 export interface SimulatorRunResponse {

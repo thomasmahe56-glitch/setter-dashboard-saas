@@ -6,6 +6,8 @@ import { NavBar } from "@/components/NavBar";
 import { api, SimulatorResult, SimulatorScenario } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 
+type JudgeScoreKey = keyof NonNullable<SimulatorResult["quality_judge"]>["scores"];
+
 const FLAG_LABELS: Record<keyof SimulatorResult["flags"], string> = {
   trop_ia: "Trop IA",
   trop_long: "Trop long",
@@ -25,6 +27,17 @@ const RECOMMENDATION_COLORS: Record<SimulatorResult["recommendation"], string> =
   retry: "#f59e0b",
   human_review: "#dc2626",
 };
+
+const JUDGE_SCORE_LABELS: Record<JudgeScoreKey, string> = {
+  naturalite: "Naturalité",
+  contexte: "Contexte",
+  progression: "Progression",
+  timing: "Timing commercial",
+  risque_ia: "Risque IA",
+  risque_business: "Risque business",
+};
+
+const JUDGE_SCORE_ORDER: JudgeScoreKey[] = ["naturalite", "contexte", "progression", "timing", "risque_ia", "risque_business"];
 
 function RecommendationBadge({ value }: { value: SimulatorResult["recommendation"] }) {
   return (
@@ -50,6 +63,43 @@ function ScoreBadge({ score }: { score: number }) {
       {score}
       <span style={{ fontSize: 13, color: "#8e8e8e", fontWeight: 700 }}>/100</span>
     </span>
+  );
+}
+
+function QualityJudgePanel({ judge }: { judge: NonNullable<SimulatorResult["quality_judge"]> }) {
+  const color = RECOMMENDATION_COLORS[judge.decision];
+  return (
+    <div style={{ borderRadius: 14, border: `1px solid ${color}33`, background: `${color}08`, padding: 14, display: "grid", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 13, color: "#111827" }}>DM Quality Judge v1</h3>
+          <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: 12 }}>Évaluation structurée interne simulateur uniquement.</p>
+        </div>
+        <div style={{ display: "grid", gap: 6, justifyItems: "end" }}>
+          <span style={{ color, fontSize: 24, fontWeight: 850, letterSpacing: -0.8 }}>
+            {judge.overall_score}<span style={{ fontSize: 12, color: "#8e8e8e", fontWeight: 700 }}>/100</span>
+          </span>
+          <RecommendationBadge value={judge.decision} />
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+        {JUDGE_SCORE_ORDER.map((key) => (
+          <div key={key} style={{ borderRadius: 12, background: "#fff", border: "1px solid #e5e7eb", padding: "9px 10px" }}>
+            <p style={{ margin: 0, color: "#6b7280", fontSize: 11, fontWeight: 750 }}>{JUDGE_SCORE_LABELS[key]}</p>
+            <p style={{ margin: "4px 0 0", color: "#111827", fontSize: 16, fontWeight: 850 }}>{judge.scores[key]}/10</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gap: 8 }}>
+        <p style={{ margin: 0, color: "#374151", fontSize: 13, lineHeight: 1.5 }}><strong>Pourquoi :</strong> {judge.why}</p>
+        <div style={{ borderRadius: 12, background: "#fff", border: "1px solid #e5e7eb", padding: 10 }}>
+          <p style={{ margin: "0 0 6px", color: "#6b7280", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>Rewrite suggéré</p>
+          <p style={{ margin: 0, color: "#111827", fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{judge.suggested_rewrite}</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -111,6 +161,8 @@ function ResultCard({ result }: { result: SimulatorResult }) {
             <p style={{ margin: 0, fontSize: 15, lineHeight: 1.55, color: "#111827" }}>{result.angellos_reply}</p>
             <p style={{ margin: "10px 0 0", fontSize: 12, color: "#8e8e8e" }}>Source: {result.response_source}</p>
           </div>
+
+          {result.quality_judge && <QualityJudgePanel judge={result.quality_judge} />}
 
           <div style={{ borderRadius: 14, border: "1px solid #e5e7eb", padding: 14 }}>
             <h3 style={{ margin: "0 0 8px", fontSize: 13, color: "#111827" }}>Flags qualité</h3>

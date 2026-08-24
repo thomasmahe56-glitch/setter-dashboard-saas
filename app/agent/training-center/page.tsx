@@ -96,14 +96,10 @@ type BulkAutomationCounts = {
 type AutosaveKey = "profile" | "avatarInput" | "avatar" | "rules";
 type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 type AutosaveState = Record<AutosaveKey, { status: AutosaveStatus; savedAt: number | null }>;
-const PROMPT_REFINEMENT_CHIPS = [
-  "Too long",
-  "Too salesy",
-  "Wrong language",
-  "Wrong next step",
-  "Wrong question asked",
-  "Bad question",
-];
+const PROMPT_REFINEMENT_CHIPS = {
+  en: ["Too long", "Too salesy", "Wrong language", "Wrong next step", "Wrong question asked", "Bad question"],
+  fr: ["Trop long", "Trop commercial", "Mauvaise langue", "Mauvaise prochaine étape", "Mauvaise question posée", "Question maladroite"],
+};
 type JudgeScoreKey = keyof SimulatorQualityJudge["scores"];
 const QUALITY_JUDGE_SCORE_ORDER: JudgeScoreKey[] = ["naturalite", "contexte", "progression", "timing", "risque_ia", "risque_business"];
 const QUALITY_JUDGE_SCORE_LABELS: Record<JudgeScoreKey, string> = {
@@ -1892,6 +1888,7 @@ function LaunchStep({
     profile.offer_format,
     profile.price,
   ].filter((value) => value.trim()).length;
+  const isFrench = (profile.language || "").toLowerCase().startsWith("fr");
 
   return (
     <div>
@@ -1937,12 +1934,17 @@ function LaunchStep({
           onReset={onResetChat}
           onNeedsImprovement={(reply, judge) => {
             const judgeContext = judge
-              ? `\n\nQuality Judge says: ${judge.why}${judge.suggested_rewrite ? `\nSuggested rewrite: "${judge.suggested_rewrite}"` : ""}`
+              ? isFrench
+                ? `\n\nQuality Judge indique : ${judge.why}${judge.suggested_rewrite ? `\nRéécriture suggérée : "${judge.suggested_rewrite}"` : ""}`
+                : `\n\nQuality Judge says: ${judge.why}${judge.suggested_rewrite ? `\nSuggested rewrite: "${judge.suggested_rewrite}"` : ""}`
               : "";
-            onRefineInstructionChange(`This reply needs improvement:\n"${reply}"${judgeContext}\n\nChange Angellos so it replies better next time.`);
+            onRefineInstructionChange(isFrench
+              ? `Cette réponse doit être améliorée :\n"${reply}"${judgeContext}\n\nCorrige Angellos pour qu’il réponde mieux la prochaine fois.`
+              : `This reply needs improvement:\n"${reply}"\n\nChange Angellos so it replies better next time.`);
           }}
         />
         <PromptRefinementPanel
+          language={isFrench ? "fr" : "en"}
           instruction={refineInstruction}
           preview={refinePreview}
           loading={refineLoading}
@@ -2246,6 +2248,7 @@ function TrainingQualityJudgePanel({ judge }: { judge: SimulatorQualityJudge }) 
 }
 
 function PromptRefinementPanel({
+  language,
   instruction,
   preview,
   loading,
@@ -2258,6 +2261,7 @@ function PromptRefinementPanel({
   onApply,
   onCancel,
 }: {
+  language: "en" | "fr";
   instruction: string;
   preview: PromptRefinementResult | null;
   loading: boolean;
@@ -2274,6 +2278,9 @@ function PromptRefinementPanel({
   const previewReady = Boolean(preview);
   const busy = loading || applying;
   const canPreview = !disabled && !busy && instruction.trim().length > 0;
+  const chips = PROMPT_REFINEMENT_CHIPS[language];
+  const changedLineCount = preview?.diff.filter((line) => line.type !== "keep").length || 0;
+  const noNewChange = Boolean(preview?.already_learned || (preview && changedLineCount === 0));
 
   return (
     <section style={styles.refinePanel}>
@@ -2294,7 +2301,7 @@ function PromptRefinementPanel({
       />
 
       <div style={styles.chipRow}>
-        {PROMPT_REFINEMENT_CHIPS.map((chip) => (
+        {chips.map((chip) => (
           <button
             key={chip}
             type="button"
@@ -2325,15 +2332,15 @@ function PromptRefinementPanel({
         <div style={styles.diffBox}>
           <div style={styles.diffHeader}>
             <div>
-              <span style={styles.diffEyebrow}>What will change</span>
+              <span style={styles.diffEyebrow}>{language === "fr" ? "Ce qui va changer" : "What will change"}</span>
               <strong style={styles.diffTitle}>{preview.target_section || "Angellos behavior"}</strong>
             </div>
-            <span style={styles.diffCount}>{preview.diff.filter((line) => line.type !== "keep").length} line{preview.diff.filter((line) => line.type !== "keep").length > 1 ? "s" : ""}</span>
+            <span style={styles.diffCount}>{changedLineCount} {language === "fr" ? "ligne" : "line"}{changedLineCount > 1 ? "s" : ""}</span>
           </div>
           {preview.summary && <p style={styles.diffSummary}>{preview.summary}</p>}
           <div style={styles.diffList}>
             {preview.diff.length === 0 ? (
-              <p style={styles.emptyText}>No detailed changes returned.</p>
+              <p style={styles.emptyText}>{language === "fr" ? "Aucun nouveau changement." : "No new changes."}</p>
             ) : (
               preview.diff.slice(0, 80).map((line, index) => (
                 <div key={`${line.type}-${index}`} style={diffLineStyle(line.type)}>
@@ -2345,9 +2352,9 @@ function PromptRefinementPanel({
               ))
             )}
           </div>
-          <button type="button" onClick={onApply} disabled={disabled || busy} style={primaryButton(disabled || busy)}>
+          <button type="button" onClick={onApply} disabled={disabled || busy || noNewChange} style={primaryButton(disabled || busy || noNewChange)}>
             {applying ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-            {applying ? "Updating Angellos..." : "Update Angellos"}
+            {noNewChange ? (language === "fr" ? "Déjà enregistré" : "Already saved") : applying ? "Updating Angellos..." : "Update Angellos"}
           </button>
         </div>
       )}

@@ -369,6 +369,8 @@ export interface PromptRefinementResult {
   previous_version_id?: string | null;
   refinement_applied_at?: string;
   reset_test_conversation: boolean;
+  already_learned?: boolean;
+  rules_changed?: boolean;
 }
 
 export const api = {

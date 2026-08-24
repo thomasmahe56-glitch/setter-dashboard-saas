@@ -35,6 +35,7 @@ import {
   PromptRefinementResult,
   PromptVersion,
   PromptVersionMemory,
+  SimulatorQualityJudge,
   TrainingProfileInput,
 } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
@@ -103,6 +104,26 @@ const PROMPT_REFINEMENT_CHIPS = [
   "Wrong question asked",
   "Bad question",
 ];
+type JudgeScoreKey = keyof SimulatorQualityJudge["scores"];
+const QUALITY_JUDGE_SCORE_ORDER: JudgeScoreKey[] = ["naturalite", "contexte", "progression", "timing", "risque_ia", "risque_business"];
+const QUALITY_JUDGE_SCORE_LABELS: Record<JudgeScoreKey, string> = {
+  naturalite: "Naturalité",
+  contexte: "Contexte",
+  progression: "Progression",
+  timing: "Timing",
+  risque_ia: "Risque IA",
+  risque_business: "Risque business",
+};
+const QUALITY_JUDGE_DECISION_LABELS: Record<SimulatorQualityJudge["decision"], string> = {
+  pass: "Pass",
+  retry: "Retry",
+  human_review: "Human review",
+};
+const QUALITY_JUDGE_DECISION_COLORS: Record<SimulatorQualityJudge["decision"], string> = {
+  pass: "#16a34a",
+  retry: "#f59e0b",
+  human_review: "#dc2626",
+};
 
 const STEP_DEFINITIONS: {
   id: MainStepId;
@@ -731,7 +752,7 @@ export default function TrainingCenterPage() {
 
     try {
       const data = await api.playground(nextMessages, profile.calendly_url, profile.sales_page_url);
-      setChatMessages((current) => [...current, { role: "assistant", content: data.response }]);
+      setChatMessages((current) => [...current, { role: "assistant", content: data.response, quality_judge: data.quality_judge }]);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to run test";
       setChatError(message);
@@ -1914,8 +1935,11 @@ function LaunchStep({
           onSend={onSendTestMessage}
           onKeyDown={onChatKeyDown}
           onReset={onResetChat}
-          onNeedsImprovement={(reply) => {
-            onRefineInstructionChange(`This reply needs improvement:\n"${reply}"\n\nChange Angellos so it replies better next time.`);
+          onNeedsImprovement={(reply, judge) => {
+            const judgeContext = judge
+              ? `\n\nQuality Judge says: ${judge.why}${judge.suggested_rewrite ? `\nSuggested rewrite: "${judge.suggested_rewrite}"` : ""}`
+              : "";
+            onRefineInstructionChange(`This reply needs improvement:\n"${reply}"${judgeContext}\n\nChange Angellos so it replies better next time.`);
           }}
         />
         <PromptRefinementPanel
@@ -2109,7 +2133,7 @@ function TestConversation({
   onSend: () => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   onReset: () => void;
-  onNeedsImprovement: (reply: string) => void;
+  onNeedsImprovement: (reply: string, judge?: SimulatorQualityJudge) => void;
 }) {
   const { t } = useI18n();
   return (
@@ -2148,10 +2172,13 @@ function TestConversation({
                   <div style={isAgent ? styles.agentBubble : styles.userBubble}>
                     {message.content}
                   </div>
+                  {isAgent && message.quality_judge && (
+                    <TrainingQualityJudgePanel judge={message.quality_judge} />
+                  )}
                   {isAgent && !error && (
                     <div style={styles.replyFeedbackRow}>
                       <button type="button" style={styles.textButton}>Good reply</button>
-                      <button type="button" onClick={() => onNeedsImprovement(message.content)} style={styles.textButton}>Needs improvement</button>
+                      <button type="button" onClick={() => onNeedsImprovement(message.content, message.quality_judge)} style={styles.textButton}>Needs improvement</button>
                     </div>
                   )}
                 </div>
@@ -2185,6 +2212,36 @@ function TestConversation({
         </button>
       </div>
     </section>
+  );
+}
+
+function TrainingQualityJudgePanel({ judge }: { judge: SimulatorQualityJudge }) {
+  const color = QUALITY_JUDGE_DECISION_COLORS[judge.decision];
+  return (
+    <div style={{ ...styles.qualityJudgePanel, borderColor: `${color}33`, background: `${color}08` }}>
+      <div style={styles.qualityJudgeHeader}>
+        <div>
+          <p style={styles.qualityJudgeEyebrow}>Quality Judge</p>
+          <strong style={styles.qualityJudgeTitle}>{judge.overall_score}/100 · {QUALITY_JUDGE_DECISION_LABELS[judge.decision]}</strong>
+        </div>
+        <span style={{ ...styles.qualityJudgeDecision, color, background: `${color}14` }}>{QUALITY_JUDGE_DECISION_LABELS[judge.decision]}</span>
+      </div>
+      <p style={styles.qualityJudgeText}><strong>Pourquoi :</strong> {judge.why}</p>
+      {judge.suggested_rewrite && (
+        <p style={styles.qualityJudgeRewrite}><strong>Rewrite suggéré :</strong> {judge.suggested_rewrite}</p>
+      )}
+      <details>
+        <summary style={styles.qualityJudgeSummary}>Voir les sous-scores</summary>
+        <div style={styles.qualityJudgeScores}>
+          {QUALITY_JUDGE_SCORE_ORDER.map((key) => (
+            <div key={key} style={styles.qualityJudgeScoreItem}>
+              <span>{QUALITY_JUDGE_SCORE_LABELS[key]}</span>
+              <strong>{judge.scores[key]}/10</strong>
+            </div>
+          ))}
+        </div>
+      </details>
+    </div>
   );
 }
 
@@ -3967,6 +4024,80 @@ const styles: Record<string, React.CSSProperties> = {
     display: "grid",
     gap: 5,
     maxWidth: "88%",
+  },
+  qualityJudgePanel: {
+    border: "1px solid #e6ebf2",
+    borderRadius: 10,
+    padding: 10,
+    display: "grid",
+    gap: 8,
+  },
+  qualityJudgeHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  qualityJudgeEyebrow: {
+    margin: "0 0 2px",
+    color: "#64748b",
+    fontSize: 10,
+    fontWeight: 900,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+  },
+  qualityJudgeTitle: {
+    display: "block",
+    color: "#0f172a",
+    fontSize: 13,
+    lineHeight: 1.25,
+  },
+  qualityJudgeDecision: {
+    borderRadius: 999,
+    padding: "4px 7px",
+    fontSize: 10,
+    fontWeight: 900,
+    whiteSpace: "nowrap",
+  },
+  qualityJudgeText: {
+    margin: 0,
+    color: "#334155",
+    fontSize: 12,
+    lineHeight: 1.45,
+  },
+  qualityJudgeRewrite: {
+    margin: 0,
+    borderRadius: 8,
+    background: "#fff",
+    border: "1px solid #e6ebf2",
+    color: "#0f172a",
+    padding: "8px 9px",
+    fontSize: 12,
+    lineHeight: 1.45,
+    whiteSpace: "pre-wrap",
+  },
+  qualityJudgeSummary: {
+    cursor: "pointer",
+    color: "#2563eb",
+    fontSize: 12,
+    fontWeight: 850,
+  },
+  qualityJudgeScores: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: 6,
+    marginTop: 8,
+  },
+  qualityJudgeScoreItem: {
+    borderRadius: 8,
+    background: "#fff",
+    border: "1px solid #e6ebf2",
+    padding: "6px 7px",
+    color: "#475569",
+    fontSize: 11,
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 6,
   },
   replyFeedbackRow: {
     display: "flex",

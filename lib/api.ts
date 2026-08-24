@@ -272,6 +272,7 @@ export interface TrainingCenterState {
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  quality_judge?: SimulatorQualityJudge;
 }
 
 export interface SimulatorScenario {
@@ -523,7 +524,7 @@ export const api = {
       }),
     }),
   playground: (messages: ChatMessage[], calendly_url?: string, sales_page_url?: string) =>
-    apiFetch<{ response: string }>("/playground", {
+    apiFetch<{ response: string; quality_judge?: SimulatorQualityJudge }>("/playground", {
       method: "POST",
       body: JSON.stringify({
         messages,

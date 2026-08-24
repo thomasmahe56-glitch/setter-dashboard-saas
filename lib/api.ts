@@ -274,6 +274,38 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface SimulatorScenario {
+  id: string;
+  title: string;
+  description: string;
+  prospect_profile: string;
+}
+
+export interface SimulatorResult extends SimulatorScenario {
+  scenario_id: string;
+  transcript: (HistoryMessage & { sent?: boolean; source?: string })[];
+  angellos_reply: string;
+  response_source: string;
+  quality_score: number;
+  flags: {
+    trop_ia: boolean;
+    trop_long: boolean;
+    repetitif: boolean;
+    pitch_premature: boolean;
+    manque_contexte: boolean;
+  };
+  recommendation: "pass" | "retry" | "human_review";
+}
+
+export interface SimulatorRunResponse {
+  success: boolean;
+  mode: "ai" | "deterministic_current_logic";
+  scenario_count: number;
+  pass_count: number;
+  review_count: number;
+  results: SimulatorResult[];
+}
+
 export interface PromptVersion {
   id: string;
   created_at: string;
@@ -480,6 +512,12 @@ export const api = {
         calendly_url: calendly_url?.trim() || undefined,
         sales_page_url: sales_page_url?.trim() || undefined,
       }),
+    }),
+  getSimulatorScenarios: () => apiFetch<SimulatorScenario[]>("/simulator/scenarios"),
+  runSimulator: (scenario_id?: string, use_ai = false) =>
+    apiFetch<SimulatorRunResponse>("/simulator/run", {
+      method: "POST",
+      body: JSON.stringify({ scenario_id: scenario_id || undefined, use_ai }),
     }),
   getPromptVersions: () =>
     apiFetch<PromptVersion[]>("/prompt-versions"),

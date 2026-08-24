@@ -5,6 +5,7 @@ import { useState } from "react";
 import {
   BarChart3,
   Clock3,
+  FlaskConical,
   GraduationCap,
   Lightbulb,
   LogOut,
@@ -24,6 +25,7 @@ const TABS = [
   { key: "kpis", href: "/kpi", label: "KPIs", icon: BarChart3 },
   { key: "insights", href: "/insights", label: "Insights", icon: Lightbulb },
   { key: "training", href: "/agent/training-center", label: "Training", icon: GraduationCap },
+  { key: "simulator", href: "/agent/simulator", label: "Simulator", icon: FlaskConical },
 ];
 
 interface NavBarProps {

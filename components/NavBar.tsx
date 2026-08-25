@@ -12,6 +12,7 @@ import {
   Menu,
   MessageCircle,
   RefreshCw,
+  Search,
   X,
 } from "lucide-react";
 import { config } from "@/lib/config";
@@ -21,6 +22,7 @@ import { useI18n } from "@/lib/i18n";
 
 const TABS = [
   { key: "crm", href: "/crm", label: "CRM", icon: MessageCircle },
+  { key: "prospection", href: "/prospection", label: "Prospection", icon: Search },
   { key: "followUps", href: "/relance", label: "Follow-ups", icon: Clock3 },
   { key: "kpis", href: "/kpi", label: "KPIs", icon: BarChart3 },
   { key: "insights", href: "/insights", label: "Insights", icon: Lightbulb },

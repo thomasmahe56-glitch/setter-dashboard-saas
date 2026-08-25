@@ -1,21 +1,42 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ExternalLink, Search, Send, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n";
+import { api } from "@/lib/api";
 
 const PROSPECTING_DASHBOARD_URL = "https://angelos-prospecting-production.up.railway.app";
 
 export default function ProspectionPage() {
   const { t } = useI18n();
+  const [trainingContext, setTrainingContext] = useState<Awaited<ReturnType<typeof api.getTrainingCenter>> | null>(null);
+  const [trainingLoading, setTrainingLoading] = useState(true);
 
   useEffect(() => {
     createClient().auth.getSession().then(({ data }) => {
       if (!data.session) window.location.href = "/login";
     });
   }, []);
+
+  useEffect(() => {
+    api.getTrainingCenter(false)
+      .then(setTrainingContext)
+      .catch(() => setTrainingContext(null))
+      .finally(() => setTrainingLoading(false));
+  }, []);
+
+  const profile = trainingContext?.profile?.profile;
+  const avatar = trainingContext?.avatar?.avatar;
+  const salesRules = trainingContext?.sales_rules?.rules;
+  const missingTrainingCenter = [
+    profile?.business_name ? null : "business_name",
+    profile?.niche ? null : "niche",
+    profile?.offer_name || profile?.offer_promise ? null : "offer",
+    avatar?.persona_summary ? null : "ideal_customer",
+  ].filter(Boolean) as string[];
+  const inheritedContextReady = !trainingLoading && trainingContext !== null && missingTrainingCenter.length === 0;
 
   const card: React.CSSProperties = {
     background: "#fff",
@@ -81,6 +102,39 @@ export default function ProspectionPage() {
             ))}
           </div>
 
+          <div style={{ ...card, display: "grid", gap: 12, marginBottom: 16, border: inheritedContextReady ? "1px solid #b7e4c7" : "1px solid #ffd6a5", background: inheritedContextReady ? "#f6fff9" : "#fffaf0" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 800, color: inheritedContextReady ? "#16833a" : "#b7791f", textTransform: "uppercase", margin: "0 0 6px" }}>
+                  {t("prospection.trainingContextEyebrow", "Training Center inherited")}
+                </p>
+                <h2 style={{ fontSize: 17, fontWeight: 850, color: "#0a0a0a", margin: "0 0 6px" }}>
+                  {inheritedContextReady
+                    ? t("prospection.trainingContextReady", "Prospecting uses the Angellos Training Center")
+                    : t("prospection.trainingContextIncomplete", "Complète d'abord le Training Center")}
+                </h2>
+                <p style={{ fontSize: 13, color: "#626b78", lineHeight: 1.55, margin: 0 }}>
+                  {t("prospection.trainingContextBody", "Niche, offer, ideal customer, tone, qualification rules and first-DM style come from the existing Training Center. Prospecting keeps only sources, markets, exclusions, followers and volume as prospecting-specific settings.")}
+                </p>
+              </div>
+              <a href="/agent/training-center" style={{ color: "#0077c8", fontSize: 13, fontWeight: 800, whiteSpace: "nowrap" }}>
+                {t("prospection.openTrainingCenter", "Open Training Center")}
+              </a>
+            </div>
+            {inheritedContextReady ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                <ContextChip label="Business" value={profile?.business_name || "-"} />
+                <ContextChip label="Niche" value={profile?.niche || "-"} />
+                <ContextChip label="Offer" value={profile?.offer_name || profile?.offer_promise || "-"} />
+                <ContextChip label="Tone/rules" value={`${profile?.tone_rules?.length || 0} tone · ${salesRules?.qualification_questions?.length || 0} qualification`} />
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: "#9a5b00", margin: 0 }}>
+                {trainingLoading ? "Loading Training Center..." : `Missing: ${missingTrainingCenter.join(", ") || "Training Center unavailable"}.`}
+              </p>
+            )}
+          </div>
+
           <div style={{ ...card, display: "grid", gap: 12 }}>
             <h2 style={{ fontSize: 17, fontWeight: 800, color: "#0a0a0a", margin: 0 }}>
               {t("prospection.betaNoteTitle", "Phase 1 beta note")}
@@ -97,6 +151,15 @@ export default function ProspectionPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ContextChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ border: "1px solid #dcefe2", borderRadius: 12, padding: 12, background: "#fff" }}>
+      <p style={{ fontSize: 11, color: "#16833a", textTransform: "uppercase", fontWeight: 850, margin: "0 0 5px" }}>{label}</p>
+      <p style={{ fontSize: 13, color: "#1f2937", fontWeight: 700, margin: 0, lineHeight: 1.35 }}>{value}</p>
     </div>
   );
 }

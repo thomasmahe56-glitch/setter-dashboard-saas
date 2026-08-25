@@ -7,9 +7,11 @@ export class ApiAuthError extends Error {
   detail: string;
 
   constructor(status: number, detail: string) {
-    super("API_AUTH_FAILED");
+    const message = detail || "Session expirée. Reconnecte-toi puis réessaie.";
+    super(message);
+    this.name = "ApiAuthError";
     this.status = status;
-    this.detail = detail;
+    this.detail = message;
   }
 }
 

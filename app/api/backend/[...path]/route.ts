@@ -30,7 +30,11 @@ async function forwardRequest(request: Request, context: { params: Promise<{ pat
 
   const authorization = request.headers.get("authorization") || "";
   if (!authorization.toLowerCase().startsWith("bearer ")) {
-    return Response.json({ detail: "Missing session" }, { status: 401 });
+    return Response.json({
+      detail: "Session manquante. Reconnecte-toi puis réessaie.",
+      message: "Session manquante. Reconnecte-toi puis réessaie.",
+      error_type: "missing_session",
+    }, { status: 401 });
   }
 
   const authCheck = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
@@ -41,7 +45,11 @@ async function forwardRequest(request: Request, context: { params: Promise<{ pat
     cache: "no-store",
   });
   if (!authCheck.ok) {
-    return Response.json({ detail: "Invalid session" }, { status: 401 });
+    return Response.json({
+      detail: "Session expirée ou invalide. Reconnecte-toi puis réessaie.",
+      message: "Session expirée ou invalide. Reconnecte-toi puis réessaie.",
+      error_type: "invalid_session",
+    }, { status: 401 });
   }
 
   const { path } = await context.params;

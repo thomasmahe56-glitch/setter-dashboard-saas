@@ -924,6 +924,11 @@ body {
     margin-left: 0 !important;
   }
 
+  .prospection-layout,
+  .prospection-source-row {
+    grid-template-columns: 1fr !important;
+  }
+
   .training-inner {
     max-width: none !important;
     flex: 1 1 auto;

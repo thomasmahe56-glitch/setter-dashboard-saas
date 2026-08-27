@@ -1,6 +1,7 @@
 import { getAccessToken } from "@/lib/supabase";
 
 const API_PROXY_URL = "/api/backend";
+const PROSPECTING_PROXY_URL = "/api/prospecting";
 
 export class ApiAuthError extends Error {
   status: number;
@@ -36,6 +37,26 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     throw new Error("NO_SESSION");
   }
   const res = await fetch(`${API_PROXY_URL}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+      ...(options.headers || {}),
+    },
+  });
+  if (res.status === 401 || res.status === 403) {
+    throw new ApiAuthError(res.status, await readErrorDetail(res));
+  }
+  if (!res.ok) throw new Error(await readErrorDetail(res));
+  return res.json();
+}
+
+async function prospectingFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = await getAccessToken();
+  if (!token) {
+    throw new Error("NO_SESSION");
+  }
+  const res = await fetch(`${PROSPECTING_PROXY_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -375,6 +396,112 @@ export interface PromptRefinementResult {
   rules_changed?: boolean;
 }
 
+export interface ProspectingContext {
+  source: string;
+  is_complete: boolean;
+  missing_fields: string[];
+  business_name?: string;
+  niche?: string;
+  offer?: string;
+  offer_name?: string;
+  offer_promise?: string;
+  ideal_customer?: string;
+  language?: string;
+  tone?: string;
+  qualification_rules?: string[];
+}
+
+export interface ProspectingSourceInput {
+  source_type: "followers" | "following" | "commenters";
+  source_value: string;
+  weight?: number;
+  enabled?: boolean;
+}
+
+export interface ProspectingCampaignInput {
+  name: string;
+  target_leads: number;
+  max_runs: number;
+  max_candidates_total: number;
+  sources: ProspectingSourceInput[];
+  target_language: string;
+  target_markets: string[];
+  niche_description?: string | null;
+  min_followers?: number | null;
+  max_followers?: number | null;
+}
+
+export interface ProspectingCampaign {
+  id: string;
+  name: string;
+  status: "draft" | "running" | "completed" | "failed" | "paused";
+  target_leads: number;
+  inserted_total: number;
+  analyzed_total: number;
+  skipped_total: number;
+  duplicates_total: number;
+  runs_count: number;
+  created_at: string;
+  updated_at?: string;
+  completed_at?: string | null;
+  error?: string | null;
+  sources?: ProspectingSourceInput[];
+  user_id?: string;
+}
+
+export interface ProspectingProspect {
+  id: string;
+  username: string;
+  full_name?: string | null;
+  bio?: string | null;
+  profile_url?: string | null;
+  status: "new" | "qualified" | "contacted" | "replied" | "booked" | "ignored";
+  qualification_score?: number | null;
+  qualification_fit?: string | null;
+  qualification_reason?: string | null;
+  first_dm?: string | null;
+  hook_angle?: string | null;
+  followers_count?: number | null;
+  created_at?: string;
+  user_id?: string;
+}
+
+export interface ProspectingKpi {
+  period_days: number;
+  granularity: string;
+  total: { contacted: number; replied: number; demo_booked: number; ignored: number; qualified?: number };
+  rates: Record<string, number>;
+  by_period: Record<string, number | string>[];
+}
+
+export interface ProspectingTestProfileInput {
+  username: string;
+  full_name?: string;
+  bio: string;
+  followers_count?: number | null;
+  following_count?: number | null;
+  posts_count?: number | null;
+  profile_url?: string;
+  target_language: string;
+  target_markets: string[];
+  niche_description?: string | null;
+}
+
+export interface ProspectingTestProfileResult {
+  context_source: string;
+  context_complete: boolean;
+  missing_fields: string[];
+  qualification: {
+    score?: number;
+    fit?: string;
+    reason?: string;
+    hook_angle?: string;
+    first_dm?: string;
+    should_store?: boolean;
+    [key: string]: unknown;
+  };
+}
+
 export const api = {
   getConversations: () => apiFetch<Conversation[]>("/conversations"),
   getConversationSummaries: () =>
@@ -554,5 +681,34 @@ export const api = {
     const { supabase } = await import("@/lib/supabase");
     await supabase.auth.signOut();
     window.location.href = "/login";
+  },
+  prospecting: {
+    getContext: () => prospectingFetch<ProspectingContext>("/context"),
+    getCampaigns: () => prospectingFetch<{ items: ProspectingCampaign[] }>("/campaigns"),
+    createCampaign: (input: ProspectingCampaignInput) =>
+      prospectingFetch<ProspectingCampaign>("/campaigns", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    runCampaign: (campaignId: string) =>
+      prospectingFetch<ProspectingCampaign>(`/campaigns/${campaignId}/run`, { method: "POST" }),
+    getProspects: (limit = 30) =>
+      prospectingFetch<{ items: ProspectingProspect[] }>(`/prospects?limit=${limit}`),
+    updateProspectStatus: (prospectId: string, status: ProspectingProspect["status"]) =>
+      prospectingFetch<{ item: ProspectingProspect }>(`/prospects/${prospectId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
+    addProspectFeedback: (prospectId: string, reason?: string) =>
+      prospectingFetch<{ success: boolean }>(`/prospects/${prospectId}/feedback`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      }),
+    getKpi: () => prospectingFetch<ProspectingKpi>("/prospects/kpi?days=30&granularity=day"),
+    testProfile: (input: ProspectingTestProfileInput) =>
+      prospectingFetch<ProspectingTestProfileResult>("/test-profile", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
   },
 };

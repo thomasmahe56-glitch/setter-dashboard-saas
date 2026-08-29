@@ -22,8 +22,10 @@ import {
   ProspectingCampaign,
   ProspectingCampaignInput,
   ProspectingContext,
+  ProspectingDiscoveredSource,
   ProspectingKpi,
   ProspectingProspect,
+  ProspectingSourceDiscoveryResult,
   ProspectingSourceInput,
   ProspectingTestProfileResult,
 } from "@/lib/api";
@@ -80,6 +82,9 @@ export default function ProspectionPage() {
   const [cancelingCampaignId, setCancelingCampaignId] = useState<string | null>(null);
   const [testingProfile, setTestingProfile] = useState(false);
   const [testResult, setTestResult] = useState<ProspectingTestProfileResult | null>(null);
+  const [targetHint, setTargetHint] = useState("");
+  const [discoveringSources, setDiscoveringSources] = useState(false);
+  const [sourceDiscovery, setSourceDiscovery] = useState<ProspectingSourceDiscoveryResult | null>(null);
 
   const [campaignName, setCampaignName] = useState("Campagne Instagram Nounes");
   const [targetLeads, setTargetLeads] = useState(3);
@@ -156,6 +161,48 @@ export default function ProspectionPage() {
 
   function removeSource(id: string) {
     setSources((current) => (current.length === 1 ? current : current.filter((source) => source.id !== id)));
+  }
+
+  function addDiscoveredSource(source: ProspectingDiscoveredSource) {
+    if (source.source_value.startsWith("manual_search:")) {
+      setNotice({ kind: "error", text: "Cette suggestion est une requête à vérifier : ouvre-la, choisis une vraie URL Instagram, puis colle-la dans la campagne." });
+      return;
+    }
+    setSources((current) => {
+      const nextSource: SourceDraft = {
+        id: `source-${current.length + 1}`,
+        source_type: source.source_type,
+        source_value: source.source_value,
+        weight: source.source_type === "commenters" ? 4 : 2,
+        enabled: true,
+      };
+      const emptyIndex = current.findIndex((item) => !item.source_value.trim());
+      if (emptyIndex === -1) return [...current, nextSource];
+      return current.map((item, index) => (index === emptyIndex ? { ...nextSource, id: item.id } : item));
+    });
+    setNotice({ kind: "success", text: "Source ajoutée à la campagne. Garde un test court avant de scaler." });
+  }
+
+  async function handleDiscoverSources() {
+    setDiscoveringSources(true);
+    setSourceDiscovery(null);
+    setNotice(null);
+    try {
+      const result = await api.prospecting.discoverSourcesFromContext({
+        target_hint: targetHint.trim() || undefined,
+        max_sources: 10,
+        include_commenters: true,
+        include_followers: true,
+      });
+      setSourceDiscovery(result);
+      if (!result.sources.length) {
+        setNotice({ kind: "error", text: "Aucune source exploitable trouvée. Essaie une précision cible plus concrète." });
+      }
+    } catch (error) {
+      setNotice({ kind: "error", text: error instanceof Error ? error.message : "Impossible de suggérer des sources." });
+    } finally {
+      setDiscoveringSources(false);
+    }
   }
 
   function campaignPayload(): ProspectingCampaignInput {
@@ -340,6 +387,52 @@ export default function ProspectionPage() {
                       <p style={{ color: "#9a5b00", fontSize: 13, fontWeight: 700, margin: "14px 0 0" }}>
                         À compléter : {missingFields.length ? missingFields.join(", ") : "Training Center indisponible"}.
                       </p>
+                    )}
+                  </section>
+
+                  <section style={card}>
+                    <SectionTitle icon={Sparkles} eyebrow="1. Trouver les meilleures sources" title="Source Discovery Angellos" />
+                    <p style={{ margin: "12px 0 0", color: "#626b78", fontSize: 13, lineHeight: 1.55, fontWeight: 650 }}>
+                      Pour un test rapide, privilégie les commentateurs de posts récents : signal plus chaud que les followers.
+                    </p>
+                    <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
+                      <label style={labelStyle}>Précision cible optionnelle
+                        <textarea
+                          style={{ ...inputStyle, minHeight: 82, resize: "vertical" }}
+                          value={targetHint}
+                          onChange={(e) => setTargetHint(e.target.value)}
+                          placeholder="Ex : kinés libéraux français actifs sur Instagram"
+                        />
+                      </label>
+                      <button type="button" onClick={handleDiscoverSources} disabled={discoveringSources} style={primaryButton(discoveringSources)}>
+                        {discoveringSources ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                        Suggérer des sources
+                      </button>
+                    </div>
+                    {discoveringSources && (
+                      <p style={{ margin: "14px 0 0", color: "#0077c8", fontSize: 13, fontWeight: 800 }}>
+                        Angellos cherche des sources pertinentes...
+                      </p>
+                    )}
+                    {sourceDiscovery && (
+                      <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
+                        {sourceDiscovery.discovery_mode === "fallback_queries" && (
+                          <p style={{ margin: 0, color: "#9a5b00", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 14, padding: 12, fontSize: 13, lineHeight: 1.45, fontWeight: 750 }}>
+                            Recherche web serveur indisponible : Angellos propose des requêtes à vérifier, sans inventer de usernames. Ouvre une requête, choisis une vraie URL Instagram, puis colle-la dans les sources.
+                          </p>
+                        )}
+                        {sourceDiscovery.sources.length ? sourceDiscovery.sources.map((source) => (
+                          <DiscoveredSourceRow key={`${source.source_type}:${source.source_value}`} source={source} onAdd={() => addDiscoveredSource(source)} />
+                        )) : <EmptyState text="Aucune suggestion retournée pour cette cible." />}
+                        {sourceDiscovery.queries.length > 0 && (
+                          <details style={{ border: "1px solid #e5eaf1", borderRadius: 14, padding: 12, background: "#fbfcfd" }}>
+                            <summary style={{ cursor: "pointer", color: "#374151", fontSize: 12, fontWeight: 850 }}>Requêtes utilisées par Angellos</summary>
+                            <ul style={{ margin: "10px 0 0", paddingLeft: 18, color: "#626b78", fontSize: 12, lineHeight: 1.6 }}>
+                              {sourceDiscovery.queries.map((query) => <li key={query}>{query}</li>)}
+                            </ul>
+                          </details>
+                        )}
+                      </div>
                     )}
                   </section>
 
@@ -540,6 +633,40 @@ function sourceTypeLabel(sourceType: ProspectingSourceInput["source_type"]) {
     following: "Following",
     commenters: "Commentateurs",
   }[sourceType];
+}
+
+function DiscoveredSourceRow({ source, onAdd }: { source: ProspectingDiscoveredSource; onAdd: () => void }) {
+  const isManualSearch = source.source_value.startsWith("manual_search:");
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 12, alignItems: "center", border: "1px solid #e5eaf1", borderRadius: 16, padding: 14, background: "#fff" }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 7 }}>
+          <span style={{ width: "fit-content", borderRadius: 999, padding: "5px 9px", background: source.source_type === "commenters" ? "#edf7ff" : "#f3f4f6", color: source.source_type === "commenters" ? "#0077c8" : "#374151", fontSize: 11, fontWeight: 850 }}>
+            {source.source_type === "commenters" ? "Commentateurs" : "Followers"}
+          </span>
+          <span style={{ color: "#0a0a0a", fontSize: 13, fontWeight: 850 }}>Score {source.score}/100</span>
+          <span style={{ color: riskColor(source.risk), fontSize: 12, fontWeight: 850 }}>Risque {riskLabel(source.risk)}</span>
+        </div>
+        <p style={{ margin: "0 0 5px", color: "#111827", fontSize: 14, fontWeight: 850 }}>{source.label}</p>
+        <p style={{ margin: "0 0 6px", color: "#626b78", fontSize: 12, lineHeight: 1.45, overflowWrap: "anywhere" }}>{source.source_value}</p>
+        <p style={{ margin: 0, color: "#4b5563", fontSize: 13, lineHeight: 1.45 }}>{source.reason}</p>
+      </div>
+      <button type="button" onClick={onAdd} style={secondaryButton()}>
+        {isManualSearch ? "À vérifier" : "Ajouter à la campagne"}
+      </button>
+    </div>
+  );
+}
+
+function riskLabel(risk: string) {
+  const labels: Record<string, string> = { low: "faible", medium: "moyen", high: "élevé" };
+  return labels[risk] || risk;
+}
+
+function riskColor(risk: string) {
+  if (risk === "low") return "#166534";
+  if (risk === "medium") return "#9a5b00";
+  return "#b91c1c";
 }
 
 function StatusPill({ status, stopReason }: { status: ProspectingCampaign["status"]; stopReason?: string | null }) {

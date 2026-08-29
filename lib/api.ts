@@ -418,6 +418,32 @@ export interface ProspectingSourceInput {
   enabled?: boolean;
 }
 
+export interface ProspectingSourceDiscoveryInput {
+  target_hint?: string;
+  max_sources?: number;
+  include_commenters?: boolean;
+  include_followers?: boolean;
+}
+
+export interface ProspectingDiscoveredSource {
+  source_type: "followers" | "commenters";
+  source_value: string;
+  label: string;
+  score: number;
+  reason: string;
+  risk: "low" | "medium" | "high" | string;
+  validated_by?: string;
+}
+
+export interface ProspectingSourceDiscoveryResult {
+  context_source: string;
+  context_complete: boolean;
+  missing_fields: string[];
+  queries: string[];
+  sources: ProspectingDiscoveredSource[];
+  discovery_mode?: string;
+}
+
 export interface ProspectingCampaignInput {
   name: string;
   target_leads: number;
@@ -725,6 +751,11 @@ export const api = {
     getKpi: () => prospectingFetch<ProspectingKpi>("/prospects/kpi?days=30&granularity=day"),
     testProfile: (input: ProspectingTestProfileInput) =>
       prospectingFetch<ProspectingTestProfileResult>("/test-profile", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    discoverSourcesFromContext: (input: ProspectingSourceDiscoveryInput) =>
+      prospectingFetch<ProspectingSourceDiscoveryResult>("/discover-sources-from-context", {
         method: "POST",
         body: JSON.stringify(input),
       }),

@@ -77,6 +77,7 @@ export default function ProspectionPage() {
   const [kpi, setKpi] = useState<ProspectingKpi | null>(null);
   const [savingCampaign, setSavingCampaign] = useState(false);
   const [runningCampaignId, setRunningCampaignId] = useState<string | null>(null);
+  const [cancelingCampaignId, setCancelingCampaignId] = useState<string | null>(null);
   const [testingProfile, setTestingProfile] = useState(false);
   const [testResult, setTestResult] = useState<ProspectingTestProfileResult | null>(null);
 
@@ -210,6 +211,24 @@ export default function ProspectionPage() {
     } finally {
       setRunningCampaignId(null);
       loadProspection(true);
+    }
+  }
+
+  async function handleCancelCampaign(campaignId: string) {
+    const confirmed = window.confirm("Annuler cette campagne ? Angellos s’arrêtera proprement entre deux runs.");
+    if (!confirmed) return;
+
+    setCancelingCampaignId(campaignId);
+    setNotice(null);
+    try {
+      const campaign = await api.prospecting.cancelCampaign(campaignId);
+      setCampaigns((current) => current.map((item) => (item.id === campaign.id ? campaign : item)));
+      await loadProspection(true);
+      setNotice({ kind: "success", text: "Campagne annulée." });
+    } catch (error) {
+      setNotice({ kind: "error", text: error instanceof Error ? error.message : "Impossible d’annuler la campagne." });
+    } finally {
+      setCancelingCampaignId(null);
     }
   }
 
@@ -387,12 +406,23 @@ export default function ProspectionPage() {
                     <SectionTitle icon={ShieldCheck} eyebrow="Statut" title="Campagne en cours" />
                     {activeCampaign ? (
                       <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
-                        <StatusPill status={activeCampaign.status} />
+                        <StatusPill status={activeCampaign.status} stopReason={activeCampaign.stop_reason} />
                         <h3 style={{ margin: 0, color: "#111827", fontSize: 17, fontWeight: 850 }}>{activeCampaign.name}</h3>
                         <p style={{ margin: 0, color: "#626b78", fontSize: 13, lineHeight: 1.5 }}>
                           {activeCampaign.inserted_total || 0}/{activeCampaign.target_leads || 0} prospects insérés · {activeCampaign.analyzed_total || 0} profils analysés · {activeCampaign.runs_count || 0} runs.
                         </p>
                         {activeCampaign.error && <p style={{ color: "#b91c1c", fontSize: 13, margin: 0 }}>{activeCampaign.error}</p>}
+                        {activeCampaign.status === "running" && (
+                          <button
+                            type="button"
+                            onClick={() => handleCancelCampaign(activeCampaign.id)}
+                            disabled={cancelingCampaignId === activeCampaign.id}
+                            style={dangerButton(cancelingCampaignId === activeCampaign.id)}
+                          >
+                            {cancelingCampaignId === activeCampaign.id ? <Loader2 size={16} className="animate-spin" /> : <AlertCircle size={16} />}
+                            Annuler la campagne
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <EmptyState text="Crée une campagne pour voir son statut ici." />
@@ -453,13 +483,13 @@ function ContextChip({ label, value }: { label: string; value: string }) {
   );
 }
 
-function StatusPill({ status }: { status: ProspectingCampaign["status"] }) {
+function StatusPill({ status, stopReason }: { status: ProspectingCampaign["status"]; stopReason?: string | null }) {
   const meta = {
     draft: ["Brouillon", "#f3f4f6", "#374151"],
     running: ["En cours", "#edf7ff", "#0077c8"],
     completed: ["Terminée", "#ecfdf5", "#166534"],
     failed: ["Erreur", "#fef2f2", "#b91c1c"],
-    paused: ["En pause", "#fff7ed", "#9a5b00"],
+    paused: [stopReason === "manual_stop" ? "Annulée" : "En pause", "#fff7ed", "#9a5b00"],
   }[status];
   return <span style={{ width: "fit-content", borderRadius: 999, padding: "7px 11px", background: meta[1], color: meta[2], fontSize: 12, fontWeight: 850 }}>{meta[0]}</span>;
 }
@@ -527,6 +557,23 @@ function secondaryButton(): React.CSSProperties {
     color: "#374151",
     cursor: "pointer",
     fontSize: 12,
+    fontWeight: 850,
+  };
+}
+
+function dangerButton(loadingButton = false): React.CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    border: "1px solid #fecaca",
+    borderRadius: 999,
+    padding: "11px 14px",
+    background: loadingButton ? "#fee2e2" : "#fff5f5",
+    color: "#b91c1c",
+    cursor: loadingButton ? "wait" : "pointer",
+    fontSize: 13,
     fontWeight: 850,
   };
 }

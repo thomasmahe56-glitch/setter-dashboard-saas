@@ -435,6 +435,7 @@ export interface ProspectingCampaign {
   id: string;
   name: string;
   status: "draft" | "running" | "completed" | "failed" | "paused";
+  stop_reason?: string | null;
   target_leads: number;
   inserted_total: number;
   analyzed_total: number;
@@ -692,6 +693,8 @@ export const api = {
       }),
     runCampaign: (campaignId: string) =>
       prospectingFetch<ProspectingCampaign>(`/campaigns/${campaignId}/run`, { method: "POST" }),
+    cancelCampaign: (campaignId: string) =>
+      prospectingFetch<ProspectingCampaign>(`/campaigns/${campaignId}/cancel`, { method: "POST" }),
     getProspects: (limit = 30) =>
       prospectingFetch<{ items: ProspectingProspect[] }>(`/prospects?limit=${limit}`),
     updateProspectStatus: (prospectId: string, status: ProspectingProspect["status"]) =>

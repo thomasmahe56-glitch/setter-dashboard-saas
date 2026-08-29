@@ -82,9 +82,9 @@ export default function ProspectionPage() {
   const [testResult, setTestResult] = useState<ProspectingTestProfileResult | null>(null);
 
   const [campaignName, setCampaignName] = useState("Campagne Instagram Nounes");
-  const [targetLeads, setTargetLeads] = useState(10);
-  const [maxRuns, setMaxRuns] = useState(10);
-  const [maxCandidates, setMaxCandidates] = useState(500);
+  const [targetLeads, setTargetLeads] = useState(3);
+  const [maxRuns, setMaxRuns] = useState(3);
+  const [maxCandidates, setMaxCandidates] = useState(150);
   const [targetLanguage, setTargetLanguage] = useState("français");
   const [markets, setMarkets] = useState("France, Belgique, Suisse");
   const [nicheDescription, setNicheDescription] = useState("");
@@ -164,6 +164,7 @@ export default function ProspectionPage() {
       target_leads: targetLeads,
       max_runs: maxRuns,
       max_candidates_total: maxCandidates,
+      max_duration_seconds: 300,
       sources: sources
         .filter((source) => source.source_value.trim())
         .map(({ source_type, source_value, weight, enabled }) => ({
@@ -344,6 +345,9 @@ export default function ProspectionPage() {
 
                   <section style={card}>
                     <SectionTitle icon={Target} eyebrow="Campagne" title="Créer une campagne de prospection" />
+                    <p style={{ margin: "12px 0 0", color: "#626b78", fontSize: 13, lineHeight: 1.55, fontWeight: 650 }}>
+                      Mode test rapide : commence avec 3 prospects. Si la source est bonne, relance plus large ensuite.
+                    </p>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginTop: 16 }}>
                       <label style={labelStyle}>Nom de campagne<input style={inputStyle} value={campaignName} onChange={(e) => setCampaignName(e.target.value)} /></label>
                       <label style={labelStyle}>Langue cible<input style={inputStyle} value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)} /></label>
@@ -358,7 +362,12 @@ export default function ProspectionPage() {
 
                     <div style={{ marginTop: 18, display: "grid", gap: 10 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 850, color: "#111827" }}>Sources Instagram</h3>
+                        <div>
+                          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 850, color: "#111827" }}>Sources Instagram</h3>
+                          <p style={{ margin: "6px 0 0", color: "#626b78", fontSize: 12, lineHeight: 1.45, fontWeight: 650 }}>
+                            Pour un test rapide, privilégie Commentateurs sur un post récent et niché. Followers est plus lent et moins qualifié.
+                          </p>
+                        </div>
                         <button type="button" onClick={addSource} style={secondaryButton()}>Ajouter une source</button>
                       </div>
                       {sources.map((source) => (
@@ -408,9 +417,23 @@ export default function ProspectionPage() {
                       <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
                         <StatusPill status={activeCampaign.status} stopReason={activeCampaign.stop_reason} />
                         <h3 style={{ margin: 0, color: "#111827", fontSize: 17, fontWeight: 850 }}>{activeCampaign.name}</h3>
-                        <p style={{ margin: 0, color: "#626b78", fontSize: 13, lineHeight: 1.5 }}>
-                          {activeCampaign.inserted_total || 0}/{activeCampaign.target_leads || 0} prospects insérés · {activeCampaign.analyzed_total || 0} profils analysés · {activeCampaign.runs_count || 0} runs.
-                        </p>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+                          <ProgressChip label="Profils analysés" value={String(activeCampaign.analyzed_total || 0)} />
+                          <ProgressChip label="Prospects trouvés" value={`${activeCampaign.inserted_total || 0}/${activeCampaign.target_leads || 0}`} />
+                          <ProgressChip label="Runs effectués" value={`${activeCampaign.runs_count || 0}/${activeCampaign.max_runs || "-"}`} />
+                          <ProgressChip label="Temps écoulé" value={formatElapsed(activeCampaign.elapsed_seconds)} />
+                          <ProgressChip label="Source actuelle" value={currentCampaignSource(activeCampaign)} wide />
+                        </div>
+                        {(activeCampaign.inserted_total || 0) === 0 && (activeCampaign.runs_count || 0) >= 1 && (
+                          <p style={{ margin: 0, color: "#9a5b00", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 14, padding: 12, fontSize: 13, lineHeight: 1.45, fontWeight: 750 }}>
+                            Aucun prospect qualifié pour l’instant. Si ça reste à 0 après 2-3 runs, change de source.
+                          </p>
+                        )}
+                        {activeCampaign.status !== "running" && (activeCampaign.inserted_total || 0) === 0 && (activeCampaign.runs_count || 0) >= (activeCampaign.max_runs || 0) && (
+                          <p style={{ margin: 0, color: "#b91c1c", background: "#fff5f5", border: "1px solid #fecaca", borderRadius: 14, padding: 12, fontSize: 13, lineHeight: 1.45, fontWeight: 750 }}>
+                            0 prospect inséré après {activeCampaign.runs_count || 0} runs : source faible ou filtre trop strict. Teste plutôt Commentateurs sur un post récent et niché.
+                          </p>
+                        )}
                         {activeCampaign.error && <p style={{ color: "#b91c1c", fontSize: 13, margin: 0 }}>{activeCampaign.error}</p>}
                         {activeCampaign.status === "running" && (
                           <button
@@ -481,6 +504,42 @@ function ContextChip({ label, value }: { label: string; value: string }) {
       <p style={{ fontSize: 13, color: "#111827", fontWeight: 750, margin: 0, lineHeight: 1.35 }}>{value}</p>
     </div>
   );
+}
+
+function ProgressChip({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
+  return (
+    <div style={{ border: "1px solid #e5eaf1", borderRadius: 14, padding: 12, background: "#fbfcfd", gridColumn: wide ? "1 / -1" : undefined }}>
+      <p style={{ fontSize: 11, color: "#7b8491", textTransform: "uppercase", fontWeight: 850, margin: "0 0 5px" }}>{label}</p>
+      <p style={{ fontSize: 13, color: "#111827", fontWeight: 800, margin: 0, lineHeight: 1.35, overflowWrap: "anywhere" }}>{value}</p>
+    </div>
+  );
+}
+
+function formatElapsed(seconds?: number | null) {
+  if (!seconds || seconds < 0) return "-";
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return minutes ? `${minutes}m ${rest}s` : `${rest}s`;
+}
+
+function currentCampaignSource(campaign: ProspectingCampaign) {
+  const lastRun = campaign.runs?.[campaign.runs.length - 1];
+  if (lastRun?.source_type && lastRun?.source_value) {
+    return `${sourceTypeLabel(lastRun.source_type)} · ${lastRun.source_value}`;
+  }
+  const enabledSource = campaign.sources?.find((source) => source.enabled !== false) || campaign.sources?.[0];
+  if (enabledSource?.source_type && enabledSource?.source_value) {
+    return `${sourceTypeLabel(enabledSource.source_type)} · ${enabledSource.source_value}`;
+  }
+  return "-";
+}
+
+function sourceTypeLabel(sourceType: ProspectingSourceInput["source_type"]) {
+  return {
+    followers: "Followers",
+    following: "Following",
+    commenters: "Commentateurs",
+  }[sourceType];
 }
 
 function StatusPill({ status, stopReason }: { status: ProspectingCampaign["status"]; stopReason?: string | null }) {

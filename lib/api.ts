@@ -423,6 +423,7 @@ export interface ProspectingCampaignInput {
   target_leads: number;
   max_runs: number;
   max_candidates_total: number;
+  max_duration_seconds?: number;
   sources: ProspectingSourceInput[];
   target_language: string;
   target_markets: string[];
@@ -437,6 +438,8 @@ export interface ProspectingCampaign {
   status: "draft" | "running" | "completed" | "failed" | "paused";
   stop_reason?: string | null;
   target_leads: number;
+  max_runs?: number;
+  max_duration_seconds?: number;
   inserted_total: number;
   analyzed_total: number;
   skipped_total: number;
@@ -446,7 +449,19 @@ export interface ProspectingCampaign {
   updated_at?: string;
   completed_at?: string | null;
   error?: string | null;
-  sources?: ProspectingSourceInput[];
+  elapsed_seconds?: number;
+  active_sources_remaining?: number;
+  sources?: (ProspectingSourceInput & {
+    id?: string;
+    stats?: { runs?: number; scraped?: number; inserted?: number; skipped?: number; duplicates?: number };
+  })[];
+  runs?: {
+    source_type?: ProspectingSourceInput["source_type"];
+    source_value?: string;
+    scraped?: number;
+    inserted?: number;
+    created_at?: string;
+  }[];
   user_id?: string;
 }
 

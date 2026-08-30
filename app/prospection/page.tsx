@@ -28,6 +28,7 @@ import {
   ProspectingKpi,
   ProspectingProspect,
   ProspectingSourceDiscoveryResult,
+  ProspectingSourceFeedbackInput,
   ProspectingSourceInput,
   ProspectingTestProfileResult,
 } from "@/lib/api";
@@ -88,6 +89,8 @@ export default function ProspectionPage() {
   const [targetHint, setTargetHint] = useState("");
   const [discoveringSources, setDiscoveringSources] = useState(false);
   const [sourceDiscovery, setSourceDiscovery] = useState<ProspectingSourceDiscoveryResult | null>(null);
+  const [sourceFeedbackDrafts, setSourceFeedbackDrafts] = useState<Record<string, { rating?: "good" | "bad"; reason: string }>>({});
+  const [savingSourceFeedbackKey, setSavingSourceFeedbackKey] = useState<string | null>(null);
 
   const [campaignName, setCampaignName] = useState("Campagne Instagram Nounes");
   const [targetLeads, setTargetLeads] = useState(3);
@@ -207,6 +210,50 @@ export default function ProspectionPage() {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : "Impossible de suggérer des sources." });
     } finally {
       setDiscoveringSources(false);
+    }
+  }
+
+  function updateSourceFeedbackDraft(source: ProspectingDiscoveredSource, patch: Partial<{ rating: "good" | "bad"; reason: string }>) {
+    const key = sourceFeedbackKey(source);
+    setSourceFeedbackDrafts((current) => ({
+      ...current,
+      [key]: {
+        rating: current[key]?.rating || source.feedback?.rating,
+        reason: current[key]?.reason ?? source.feedback?.reason ?? "",
+        ...patch,
+      },
+    }));
+  }
+
+  async function handleSourceFeedback(source: ProspectingDiscoveredSource) {
+    const key = sourceFeedbackKey(source);
+    const draft = sourceFeedbackDrafts[key] || { rating: source.feedback?.rating, reason: source.feedback?.reason || "" };
+    if (!draft.rating) {
+      setNotice({ kind: "error", text: "Choisis d’abord 👍 ou 👎 pour cette source." });
+      return;
+    }
+    setSavingSourceFeedbackKey(key);
+    setNotice(null);
+    try {
+      const input: ProspectingSourceFeedbackInput = {
+        source_type: source.source_type,
+        source_value: source.source_value,
+        rating: draft.rating,
+        reason: draft.reason.trim() || undefined,
+      };
+      await api.prospecting.addSourceFeedback(input);
+      setSourceDiscovery((current) => current ? {
+        ...current,
+        sources: current.sources.map((item) => sourceFeedbackKey(item) === key ? {
+          ...item,
+          feedback: { rating: input.rating, reason: input.reason || null, created_at: new Date().toISOString() },
+        } : item),
+      } : current);
+      setNotice({ kind: "success", text: "Avis enregistré. Angellos l’utilisera dans les prochaines suggestions." });
+    } catch (error) {
+      setNotice({ kind: "error", text: error instanceof Error ? error.message : "Impossible d’enregistrer l’avis source." });
+    } finally {
+      setSavingSourceFeedbackKey(null);
     }
   }
 
@@ -443,7 +490,15 @@ export default function ProspectionPage() {
                           </p>
                         )}
                         {sourceDiscovery.sources.length ? sourceDiscovery.sources.map((source) => (
-                          <DiscoveredSourceRow key={`${source.source_type}:${source.source_value}`} source={source} onAdd={() => addDiscoveredSource(source)} />
+                          <DiscoveredSourceRow
+                            key={`${source.source_type}:${source.source_value}`}
+                            source={source}
+                            draft={sourceFeedbackDrafts[sourceFeedbackKey(source)]}
+                            saving={savingSourceFeedbackKey === sourceFeedbackKey(source)}
+                            onAdd={() => addDiscoveredSource(source)}
+                            onDraftChange={(patch) => updateSourceFeedbackDraft(source, patch)}
+                            onSaveFeedback={() => handleSourceFeedback(source)}
+                          />
                         )) : <EmptyState text="Aucune suggestion retournée pour cette cible." />}
                         {sourceDiscovery.queries.length > 0 && (
                           <details style={{ border: "1px solid #e5eaf1", borderRadius: 14, padding: 12, background: "#fbfcfd" }}>
@@ -674,8 +729,36 @@ function sourceTypeLabel(sourceType: ProspectingSourceInput["source_type"]) {
   }[sourceType];
 }
 
-function DiscoveredSourceRow({ source, onAdd }: { source: ProspectingDiscoveredSource; onAdd: () => void }) {
+function sourceFeedbackKey(source: ProspectingDiscoveredSource) {
+  return `${source.source_type}:${source.source_value}`;
+}
+
+function sourceOpenUrl(source: ProspectingDiscoveredSource) {
+  if (source.source_value.startsWith("manual_search:")) {
+    return `https://www.google.com/search?q=${encodeURIComponent(source.source_value.replace("manual_search:", ""))}`;
+  }
+  if (source.source_type === "commenters") return source.source_value;
+  return `https://www.instagram.com/${source.source_value.replace(/^@/, "")}`;
+}
+
+function DiscoveredSourceRow({
+  source,
+  draft,
+  saving,
+  onAdd,
+  onDraftChange,
+  onSaveFeedback,
+}: {
+  source: ProspectingDiscoveredSource;
+  draft?: { rating?: "good" | "bad"; reason: string };
+  saving: boolean;
+  onAdd: () => void;
+  onDraftChange: (patch: Partial<{ rating: "good" | "bad"; reason: string }>) => void;
+  onSaveFeedback: () => void;
+}) {
   const isManualSearch = source.source_value.startsWith("manual_search:");
+  const selectedRating = draft?.rating || source.feedback?.rating;
+  const reason = draft?.reason ?? source.feedback?.reason ?? "";
   return (
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 12, alignItems: "center", border: "1px solid #e5eaf1", borderRadius: 16, padding: 14, background: "#fff" }}>
       <div style={{ minWidth: 0 }}>
@@ -689,12 +772,48 @@ function DiscoveredSourceRow({ source, onAdd }: { source: ProspectingDiscoveredS
         <p style={{ margin: "0 0 5px", color: "#111827", fontSize: 14, fontWeight: 850 }}>{source.label}</p>
         <p style={{ margin: "0 0 6px", color: "#626b78", fontSize: 12, lineHeight: 1.45, overflowWrap: "anywhere" }}>{source.source_value}</p>
         <p style={{ margin: 0, color: "#4b5563", fontSize: 13, lineHeight: 1.45 }}>{source.reason}</p>
+        {source.feedback ? (
+          <p style={{ margin: "9px 0 0", color: source.feedback.rating === "bad" ? "#b91c1c" : "#166534", background: source.feedback.rating === "bad" ? "#fff5f5" : "#f6fff9", border: `1px solid ${source.feedback.rating === "bad" ? "#fecaca" : "#b7e4c7"}`, borderRadius: 12, padding: "8px 10px", fontSize: 12, fontWeight: 800 }}>
+            Déjà jugée {source.feedback.rating === "bad" ? "👎" : "👍"}{source.feedback.reason ? ` : ${source.feedback.reason}` : ""}
+          </p>
+        ) : null}
+        <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" onClick={() => onDraftChange({ rating: "good" })} style={ratingButton(selectedRating === "good", "good")}>👍 Bonne source</button>
+            <button type="button" onClick={() => onDraftChange({ rating: "bad" })} style={ratingButton(selectedRating === "bad", "bad")}>👎 Mauvaise source</button>
+          </div>
+          <input
+            style={{ ...inputStyle, padding: "10px 12px", fontSize: 13 }}
+            value={reason}
+            onChange={(event) => onDraftChange({ reason: event.target.value })}
+            placeholder="Pourquoi ? (optionnel)"
+          />
+        </div>
       </div>
-      <button type="button" onClick={onAdd} style={secondaryButton()}>
-        {isManualSearch ? "À vérifier" : "Ajouter à la campagne"}
-      </button>
+      <div style={{ display: "grid", gap: 8, justifyItems: "stretch" }}>
+        <a href={sourceOpenUrl(source)} target="_blank" rel="noreferrer" style={{ ...secondaryButton(), textDecoration: "none" }}>
+          <ExternalLink size={15} />
+          Ouvrir
+        </a>
+        <button type="button" onClick={onAdd} style={secondaryButton()}>
+          {isManualSearch ? "À vérifier" : "Ajouter à la campagne"}
+        </button>
+        <button type="button" onClick={onSaveFeedback} disabled={saving} style={primaryButton(saving, true)}>
+          {saving ? <Loader2 size={15} className="animate-spin" /> : null}
+          Enregistrer
+        </button>
+      </div>
     </div>
   );
+}
+
+function ratingButton(active: boolean, rating: "good" | "bad"): React.CSSProperties {
+  return {
+    ...secondaryButton(),
+    borderColor: active ? (rating === "good" ? "#86efac" : "#fecaca") : "#e5e7eb",
+    background: active ? (rating === "good" ? "#f0fdf4" : "#fff5f5") : "#fff",
+    color: active ? (rating === "good" ? "#166534" : "#b91c1c") : "#374151",
+  };
 }
 
 function riskLabel(risk: string) {

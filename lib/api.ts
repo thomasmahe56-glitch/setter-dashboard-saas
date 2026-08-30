@@ -433,6 +433,20 @@ export interface ProspectingDiscoveredSource {
   reason: string;
   risk: "low" | "medium" | "high" | string;
   validated_by?: string;
+  feedback?: ProspectingSourceFeedback;
+}
+
+export interface ProspectingSourceFeedback {
+  rating: "good" | "bad";
+  reason?: string | null;
+  created_at?: string | null;
+}
+
+export interface ProspectingSourceFeedbackInput {
+  source_type: "followers" | "commenters";
+  source_value: string;
+  rating: "good" | "bad";
+  reason?: string;
 }
 
 export interface ProspectingSourceDiscoveryResult {
@@ -760,6 +774,11 @@ export const api = {
       }),
     discoverSourcesFromContext: (input: ProspectingSourceDiscoveryInput) =>
       prospectingFetch<ProspectingSourceDiscoveryResult>("/discover-sources-from-context", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    addSourceFeedback: (input: ProspectingSourceFeedbackInput) =>
+      prospectingFetch<{ success: boolean }>("/source-feedback", {
         method: "POST",
         body: JSON.stringify(input),
       }),

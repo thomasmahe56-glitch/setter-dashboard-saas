@@ -432,8 +432,21 @@ export interface ProspectingDiscoveredSource {
   score: number;
   reason: string;
   risk: "low" | "medium" | "high" | string;
+  followers_count?: number | null;
+  comment_count?: number | null;
   validated_by?: string;
   feedback?: ProspectingSourceFeedback;
+}
+
+export interface ProspectingGoldenAccount {
+  username: string;
+  profile_url: string;
+  label?: string;
+  reason: string;
+  score?: number;
+  followers_count?: number | null;
+  stage2_error?: string;
+  sources?: ProspectingDiscoveredSource[];
 }
 
 export interface ProspectingSourceFeedback {
@@ -454,8 +467,10 @@ export interface ProspectingSourceDiscoveryResult {
   context_complete: boolean;
   missing_fields: string[];
   queries: string[];
+  accounts?: ProspectingGoldenAccount[];
   sources: ProspectingDiscoveredSource[];
   discovery_mode?: string;
+  stage2_status?: string | null;
 }
 
 export interface ProspectingCampaignInput {

@@ -25,6 +25,7 @@ import {
   ProspectingCampaignInput,
   ProspectingContext,
   ProspectingDiscoveredSource,
+  ProspectingGoldenAccount,
   ProspectingKpi,
   ProspectingProspect,
   ProspectingSourceDiscoveryResult,
@@ -479,7 +480,7 @@ export default function ProspectionPage() {
                     </div>
                     {discoveringSources && (
                       <p style={{ margin: "14px 0 0", color: "#0077c8", fontSize: 13, fontWeight: 800 }}>
-                        Angellos cherche des sources pertinentes...
+                        Angellos trouve les gros comptes, puis mine leurs followers et posts récents...
                       </p>
                     )}
                     {sourceDiscovery && (
@@ -489,7 +490,22 @@ export default function ProspectionPage() {
                             Recherche web serveur indisponible : Angellos propose des requêtes à vérifier, sans inventer de usernames. Ouvre une requête, choisis une vraie URL Instagram, puis colle-la dans les sources.
                           </p>
                         )}
-                        {sourceDiscovery.sources.length ? sourceDiscovery.sources.map((source) => (
+                        {sourceDiscovery.stage2_status === "apify_quota_exhausted" && (
+                          <p style={{ margin: 0, color: "#9a5b00", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 14, padding: 12, fontSize: 13, lineHeight: 1.45, fontWeight: 750 }}>
+                            Quota Apify atteint : les gros comptes Tavily sont affichés sans sources dérivées. Réessaie après recharge ou baisse le volume.
+                          </p>
+                        )}
+                        {sourceDiscovery.accounts?.length ? sourceDiscovery.accounts.map((account) => (
+                          <GoldenAccountCard
+                            key={account.username}
+                            account={account}
+                            drafts={sourceFeedbackDrafts}
+                            savingKey={savingSourceFeedbackKey}
+                            onAdd={addDiscoveredSource}
+                            onDraftChange={updateSourceFeedbackDraft}
+                            onSaveFeedback={handleSourceFeedback}
+                          />
+                        )) : sourceDiscovery.sources.length ? sourceDiscovery.sources.map((source) => (
                           <DiscoveredSourceRow
                             key={`${source.source_type}:${source.source_value}`}
                             source={source}
@@ -741,6 +757,65 @@ function sourceOpenUrl(source: ProspectingDiscoveredSource) {
   return `https://www.instagram.com/${source.source_value.replace(/^@/, "")}`;
 }
 
+function GoldenAccountCard({
+  account,
+  drafts,
+  savingKey,
+  onAdd,
+  onDraftChange,
+  onSaveFeedback,
+}: {
+  account: ProspectingGoldenAccount;
+  drafts: Record<string, { rating?: "good" | "bad"; reason: string }>;
+  savingKey: string | null;
+  onAdd: (source: ProspectingDiscoveredSource) => void;
+  onDraftChange: (source: ProspectingDiscoveredSource, patch: Partial<{ rating: "good" | "bad"; reason: string }>) => void;
+  onSaveFeedback: (source: ProspectingDiscoveredSource) => void;
+}) {
+  const sources = account.sources || [];
+  return (
+    <div style={{ border: "1px solid #dbeafe", borderRadius: 18, padding: 14, background: "#f8fbff", display: "grid", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 10, alignItems: "start" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 7 }}>
+            <span style={{ width: "fit-content", borderRadius: 999, padding: "5px 9px", background: "#dbeafe", color: "#1d4ed8", fontSize: 11, fontWeight: 850 }}>
+              Gros compte
+            </span>
+            <span style={{ color: "#0a0a0a", fontSize: 13, fontWeight: 850 }}>@{account.username}</span>
+            <span style={{ color: "#374151", fontSize: 12, fontWeight: 800 }}>{formatNumber(account.followers_count)} followers</span>
+          </div>
+          <p style={{ margin: 0, color: "#4b5563", fontSize: 13, lineHeight: 1.45 }}>{account.reason}</p>
+          {account.stage2_error ? (
+            <p style={{ margin: "8px 0 0", color: "#9a5b00", fontSize: 12, lineHeight: 1.45, fontWeight: 800 }}>{account.stage2_error}</p>
+          ) : null}
+        </div>
+        <a href={account.profile_url || `https://www.instagram.com/${account.username}`} target="_blank" rel="noreferrer" style={{ ...secondaryButton(), textDecoration: "none" }}>
+          <ExternalLink size={15} />
+          Ouvrir
+        </a>
+      </div>
+      {sources.length ? (
+        <div style={{ display: "grid", gap: 9 }}>
+          <p style={{ margin: 0, color: "#374151", fontSize: 12, fontWeight: 850 }}>Sources dérivées</p>
+          {sources.map((source) => (
+            <DiscoveredSourceRow
+              key={`${source.source_type}:${source.source_value}`}
+              source={source}
+              draft={drafts[sourceFeedbackKey(source)]}
+              saving={savingKey === sourceFeedbackKey(source)}
+              onAdd={() => onAdd(source)}
+              onDraftChange={(patch) => onDraftChange(source, patch)}
+              onSaveFeedback={() => onSaveFeedback(source)}
+            />
+          ))}
+        </div>
+      ) : (
+        <EmptyState text="Aucune source dérivée Apify pour ce compte pour le moment." />
+      )}
+    </div>
+  );
+}
+
 function DiscoveredSourceRow({
   source,
   draft,
@@ -767,6 +842,15 @@ function DiscoveredSourceRow({
             {source.source_type === "commenters" ? "Commentateurs" : "Followers"}
           </span>
           <span style={{ color: "#0a0a0a", fontSize: 13, fontWeight: 850 }}>Score {source.score}/100</span>
+          {source.source_type === "commenters" ? (
+            <span style={{ color: (source.comment_count || 0) >= 10 ? "#166534" : "#9a5b00", fontSize: 12, fontWeight: 850 }}>
+              {source.comment_count ?? "?"} commentaires
+            </span>
+          ) : source.followers_count !== undefined ? (
+            <span style={{ color: "#374151", fontSize: 12, fontWeight: 850 }}>
+              {formatNumber(source.followers_count)} followers
+            </span>
+          ) : null}
           <span style={{ color: riskColor(source.risk), fontSize: 12, fontWeight: 850 }}>Risque {riskLabel(source.risk)}</span>
         </div>
         <p style={{ margin: "0 0 5px", color: "#111827", fontSize: 14, fontWeight: 850 }}>{source.label}</p>

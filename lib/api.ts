@@ -504,6 +504,10 @@ export interface ProspectingProspect {
   first_dm?: string | null;
   hook_angle?: string | null;
   followers_count?: number | null;
+  following_count?: number | null;
+  posts_count?: number | null;
+  pain_points?: string[] | null;
+  offer_angle?: string | null;
   created_at?: string;
   user_id?: string;
 }

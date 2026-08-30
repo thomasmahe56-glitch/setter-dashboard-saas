@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
+  Copy,
+  ExternalLink,
   Loader2,
   MessageSquareText,
   Play,
@@ -33,6 +35,7 @@ import {
 type Notice = { kind: "success" | "error"; text: string } | null;
 
 type SourceDraft = ProspectingSourceInput & { id: string };
+type ProspectStatus = ProspectingProspect["status"];
 
 const DEFAULT_SOURCE: SourceDraft = {
   id: "source-1",
@@ -100,6 +103,8 @@ export default function ProspectionPage() {
   const [testUsername, setTestUsername] = useState("coach_test");
   const [testBio, setTestBio] = useState("");
   const [testFollowers, setTestFollowers] = useState(5000);
+  const [selectedProspect, setSelectedProspect] = useState<ProspectingProspect | null>(null);
+  const [updatingProspectId, setUpdatingProspectId] = useState<string | null>(null);
 
   useEffect(() => {
     createClient().auth.getSession().then(({ data }) => {
@@ -305,6 +310,22 @@ export default function ProspectionPage() {
     }
   }
 
+  async function handleProspectStatusChange(prospectId: string, status: ProspectStatus) {
+    setUpdatingProspectId(prospectId);
+    setNotice(null);
+    try {
+      const result = await api.prospecting.updateProspectStatus(prospectId, status);
+      const updated = result.item;
+      setProspects((current) => current.map((prospect) => (prospect.id === prospectId ? { ...prospect, ...updated } : prospect)));
+      setSelectedProspect((current) => (current?.id === prospectId ? { ...current, ...updated } : current));
+      setNotice({ kind: "success", text: `Statut mis à jour : ${prospectStatusLabel(status)}.` });
+    } catch (error) {
+      setNotice({ kind: "error", text: error instanceof Error ? error.message : "Impossible de mettre à jour le statut du prospect." });
+    } finally {
+      setUpdatingProspectId(null);
+    }
+  }
+
   return (
     <div className="app-page">
       <NavBar lastRefresh={null} onRefresh={() => loadProspection(true)} />
@@ -496,7 +517,7 @@ export default function ProspectionPage() {
                   <section style={card}>
                     <SectionTitle icon={Search} eyebrow="Prospects" title="Liste qualifiée" />
                     <div style={{ display: "grid", gap: 10, marginTop: 16 }}>
-                      {prospects.length ? prospects.map((prospect) => <ProspectRow key={prospect.id} prospect={prospect} />) : (
+                      {prospects.length ? prospects.map((prospect) => <ProspectRow key={prospect.id} prospect={prospect} onOpen={() => setSelectedProspect(prospect)} />) : (
                         <EmptyState text="Aucun prospect qualifié pour ce compte pour le moment." />
                       )}
                     </div>
@@ -572,6 +593,12 @@ export default function ProspectionPage() {
           )}
         </div>
       </div>
+      <ProspectDetailDrawer
+        prospect={selectedProspect}
+        updatingId={updatingProspectId}
+        onClose={() => setSelectedProspect(null)}
+        onStatusChange={handleProspectStatusChange}
+      />
     </div>
   );
 }
@@ -613,6 +640,18 @@ function formatElapsed(seconds?: number | null) {
   const minutes = Math.floor(seconds / 60);
   const rest = seconds % 60;
   return minutes ? `${minutes}m ${rest}s` : `${rest}s`;
+}
+
+function formatNumber(value?: number | null) {
+  if (value === null || value === undefined) return "-";
+  return new Intl.NumberFormat("fr-FR").format(value);
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
 function currentCampaignSource(campaign: ProspectingCampaign) {
@@ -680,9 +719,34 @@ function StatusPill({ status, stopReason }: { status: ProspectingCampaign["statu
   return <span style={{ width: "fit-content", borderRadius: 999, padding: "7px 11px", background: meta[1], color: meta[2], fontSize: 12, fontWeight: 850 }}>{meta[0]}</span>;
 }
 
-function ProspectRow({ prospect }: { prospect: ProspectingProspect }) {
+function prospectStatusLabel(status: ProspectStatus) {
+  const labels: Record<ProspectStatus, string> = {
+    new: "Nouveau",
+    qualified: "Qualifié",
+    contacted: "Contacté",
+    replied: "Répondu",
+    booked: "Booké",
+    ignored: "Ignoré",
+  };
+  return labels[status];
+}
+
+function ProspectStatusPill({ status }: { status: ProspectStatus }) {
+  const colors: Record<ProspectStatus, [string, string]> = {
+    new: ["#edf7ff", "#0077c8"],
+    qualified: ["#ecfdf5", "#166534"],
+    contacted: ["#f3f4f6", "#374151"],
+    replied: ["#fff7ed", "#9a5b00"],
+    booked: ["#ecfdf5", "#166534"],
+    ignored: ["#fef2f2", "#b91c1c"],
+  };
+  const [background, color] = colors[status];
+  return <span style={{ width: "fit-content", borderRadius: 999, padding: "6px 10px", background, color, fontSize: 12, fontWeight: 850 }}>{prospectStatusLabel(status)}</span>;
+}
+
+function ProspectRow({ prospect, onOpen }: { prospect: ProspectingProspect; onOpen: () => void }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 12, alignItems: "center", border: "1px solid #eef0f3", borderRadius: 16, padding: 14, background: "#fff" }}>
+    <button type="button" onClick={onOpen} style={{ width: "100%", display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 12, alignItems: "center", border: "1px solid #eef0f3", borderRadius: 16, padding: 14, background: "#fff", cursor: "pointer", textAlign: "left" }}>
       <div style={{ minWidth: 0 }}>
         <p style={{ margin: "0 0 4px", color: "#111827", fontSize: 14, fontWeight: 850 }}>@{prospect.username}</p>
         <p style={{ margin: 0, color: "#626b78", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -690,11 +754,131 @@ function ProspectRow({ prospect }: { prospect: ProspectingProspect }) {
         </p>
         {prospect.first_dm && <p style={{ margin: "8px 0 0", color: "#0a0a0a", fontSize: 13, fontWeight: 700 }}>DM : {prospect.first_dm}</p>}
       </div>
-      <div style={{ textAlign: "right", display: "grid", gap: 6 }}>
+      <div style={{ textAlign: "right", display: "grid", gap: 6, justifyItems: "end" }}>
         <span style={{ color: "#0095F6", fontSize: 18, fontWeight: 850 }}>{prospect.qualification_score ?? "-"}</span>
-        <span style={{ color: "#7b8491", fontSize: 12, fontWeight: 750 }}>{prospect.status}</span>
+        <ProspectStatusPill status={prospect.status} />
       </div>
+    </button>
+  );
+}
+
+function ProspectDetailDrawer({
+  prospect,
+  updatingId,
+  onClose,
+  onStatusChange,
+}: {
+  prospect: ProspectingProspect | null;
+  updatingId: string | null;
+  onClose: () => void;
+  onStatusChange: (prospectId: string, status: ProspectStatus) => void;
+}) {
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
+
+  if (!prospect) return null;
+
+  async function copyDm() {
+    if (!prospect?.first_dm) return;
+    try {
+      await navigator.clipboard.writeText(prospect.first_dm);
+      setCopyState("copied");
+    } catch {
+      setCopyState("error");
+    }
+  }
+
+  return (
+    <div role="presentation" onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", justifyContent: "flex-end", background: "rgba(15,23,42,0.35)", backdropFilter: "blur(4px)" }}>
+      <aside role="dialog" aria-modal="true" aria-label={`Fiche prospect @${prospect.username}`} onClick={(event) => event.stopPropagation()} style={{ width: "min(560px, 100%)", height: "100%", overflowY: "auto", background: "#fff", boxShadow: "-18px 0 46px rgba(15,23,42,0.18)", padding: 22, display: "grid", alignContent: "start", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ color: "#0077c8", fontSize: 11, fontWeight: 850, textTransform: "uppercase", margin: "0 0 7px" }}>Fiche prospect</p>
+            <h2 style={{ color: "#0a0a0a", fontSize: 27, lineHeight: 1.05, fontWeight: 850, margin: "0 0 6px", overflowWrap: "anywhere" }}>@{prospect.username || "prospect"}</h2>
+            <p style={{ margin: 0, color: "#626b78", fontSize: 14, fontWeight: 750 }}>{prospect.full_name || "Nom complet non disponible"}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Fermer la fiche prospect" style={{ border: "1px solid #e5e7eb", borderRadius: 999, width: 38, height: 38, background: "#fff", color: "#374151", cursor: "pointer", fontSize: 22, lineHeight: 1 }}>×</button>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+          <ProgressChip label="Score" value={String(prospect.qualification_score ?? "-")} />
+          <ProgressChip label="Fit" value={prospect.qualification_fit || "-"} />
+          <div style={{ border: "1px solid #e5eaf1", borderRadius: 14, padding: 12, background: "#fbfcfd" }}>
+            <p style={{ fontSize: 11, color: "#7b8491", textTransform: "uppercase", fontWeight: 850, margin: "0 0 7px" }}>Statut</p>
+            <ProspectStatusPill status={prospect.status} />
+          </div>
+        </div>
+
+        <DetailSection title="Profil">
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {prospect.profile_url ? (
+              <a href={prospect.profile_url} target="_blank" rel="noreferrer" style={{ ...secondaryButton(), textDecoration: "none" }}>
+                <ExternalLink size={15} />
+                Ouvrir Instagram
+              </a>
+            ) : null}
+          </div>
+          <p style={{ margin: 0, color: "#4b5563", fontSize: 13, lineHeight: 1.55 }}>{prospect.bio || "Bio non disponible."}</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+            <ContextChip label="Followers" value={formatNumber(prospect.followers_count)} />
+            <ContextChip label="Following" value={formatNumber(prospect.following_count)} />
+            <ContextChip label="Posts" value={formatNumber(prospect.posts_count)} />
+            <ContextChip label="Créé le" value={formatDate(prospect.created_at)} />
+          </div>
+        </DetailSection>
+
+        <DetailSection title="Analyse">
+          <p style={{ margin: 0, color: "#4b5563", fontSize: 13, lineHeight: 1.55 }}>{prospect.qualification_reason || "Aucune raison de qualification disponible."}</p>
+          <div>
+            <h4 style={{ margin: "0 0 8px", color: "#111827", fontSize: 13, fontWeight: 850 }}>Pain points</h4>
+            {prospect.pain_points?.length ? (
+              <ul style={{ margin: 0, paddingLeft: 18, color: "#4b5563", fontSize: 13, lineHeight: 1.55 }}>
+                {prospect.pain_points.map((point) => <li key={point}>{point}</li>)}
+              </ul>
+            ) : (
+              <p style={{ margin: 0, color: "#7b8491", fontSize: 13 }}>Aucun pain point détecté.</p>
+            )}
+          </div>
+          <ContextChip label="Angle d’offre" value={prospect.offer_angle || "-"} />
+          {prospect.hook_angle ? <ContextChip label="Hook" value={prospect.hook_angle} /> : null}
+        </DetailSection>
+
+        <DetailSection title="Premier DM">
+          <p style={{ margin: 0, border: "1px solid #e5eaf1", borderRadius: 16, padding: 14, background: "#fbfcfd", color: "#111827", fontSize: 14, lineHeight: 1.55, fontWeight: 700, whiteSpace: "pre-wrap" }}>{prospect.first_dm || "Aucun premier DM généré."}</p>
+          <button type="button" onClick={copyDm} disabled={!prospect.first_dm} style={secondaryButton(!prospect.first_dm)}>
+            <Copy size={15} />
+            Copier le DM
+          </button>
+          {copyState === "copied" ? <p style={{ margin: 0, color: "#166534", fontSize: 12, fontWeight: 800 }}>DM copié.</p> : null}
+          {copyState === "error" ? <p style={{ margin: 0, color: "#b91c1c", fontSize: 12, fontWeight: 800 }}>Copie impossible.</p> : null}
+        </DetailSection>
+
+        <DetailSection title="Actions">
+          <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
+            {prospect.profile_url ? (
+              <a href={prospect.profile_url} target="_blank" rel="noreferrer" style={{ ...secondaryButton(), textDecoration: "none" }}>
+                <ExternalLink size={15} />
+                Ouvrir le profil Instagram
+              </a>
+            ) : null}
+            {(["contacted", "replied", "booked", "ignored"] as ProspectStatus[]).map((status) => (
+              <button key={status} type="button" onClick={() => onStatusChange(prospect.id, status)} disabled={updatingId === prospect.id} style={status === "ignored" ? dangerButton(updatingId === prospect.id) : primaryButton(updatingId === prospect.id, true)}>
+                {updatingId === prospect.id ? <Loader2 size={15} className="animate-spin" /> : null}
+                Marquer {prospectStatusLabel(status).toLowerCase()}
+              </button>
+            ))}
+          </div>
+        </DetailSection>
+      </aside>
     </div>
+  );
+}
+
+function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section style={{ border: "1px solid #eef0f3", borderRadius: 18, padding: 16, background: "#fff", display: "grid", gap: 12 }}>
+      <h3 style={{ margin: 0, color: "#0a0a0a", fontSize: 16, fontWeight: 850 }}>{title}</h3>
+      {children}
+    </section>
   );
 }
 
@@ -731,17 +915,18 @@ function primaryButton(loadingButton = false, compact = false): React.CSSPropert
   };
 }
 
-function secondaryButton(): React.CSSProperties {
+function secondaryButton(disabled = false): React.CSSProperties {
   return {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
+    gap: 8,
     border: "1px solid #e5e7eb",
     borderRadius: 999,
     padding: "10px 12px",
-    background: "#fff",
-    color: "#374151",
-    cursor: "pointer",
+    background: disabled ? "#f3f4f6" : "#fff",
+    color: disabled ? "#9ca3af" : "#374151",
+    cursor: disabled ? "not-allowed" : "pointer",
     fontSize: 12,
     fontWeight: 850,
   };

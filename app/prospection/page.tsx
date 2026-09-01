@@ -449,7 +449,7 @@ export default function ProspectionPage() {
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10, marginTop: 16 }}>
                       <ContextChip label="Business" value={context?.business_name || "Non renseigné"} />
                       <ContextChip label="Niche" value={context?.niche || "Non renseignée"} />
-                      <ContextChip label="Offre" value={context?.offer_name || context?.offer || context?.offer_promise || "Non renseignée"} />
+                      <ContextChip label="Offre" value={context?.offer_name || context?.offer || context?.offer_promise || context?.offer_summary || "Non renseignée"} />
                       <ContextChip label="Source" value={context?.source || "training_center"} />
                     </div>
                     {!contextReady && (

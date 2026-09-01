@@ -405,6 +405,7 @@ export interface ProspectingContext {
   offer?: string;
   offer_name?: string;
   offer_promise?: string;
+  offer_summary?: string;
   ideal_customer?: string;
   language?: string;
   tone?: string;

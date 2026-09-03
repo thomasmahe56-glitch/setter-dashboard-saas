@@ -83,6 +83,11 @@ const fr: Record<string, string> = {
   "training.callLink": "Lien d’appel",
   "training.salesPageLink": "Lien page de vente",
   "training.freeNotes": "Notes libres",
+  "training.icpFilters.title": "Ciblage ICP (filtres durs)",
+  "training.icpFilters.minFollowers": "Seuil minimum d’abonnés",
+  "training.icpFilters.minFollowersHint": "Laisse vide si aucun seuil. Cette valeur est appliquée de façon déterministe (non contournable par l’IA).",
+  "training.icpFilters.excludeCorporate": "Exclure les comptes corporate / agences",
+  "training.icpFilters.nicheExceptions": "Exceptions de niche",
 
   "training.header.title": "Former Angellos",
   "training.header.subtitle": "Montre à Angellos comment qualifier les prospects, répondre avec ton ton et orienter les bonnes personnes vers la prochaine étape.",

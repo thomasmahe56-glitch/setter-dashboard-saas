@@ -190,6 +190,11 @@ function followUpScheduleQuery(config?: FollowUpScheduleConfig): string {
   return `?${params.toString()}`;
 }
 
+export interface NicheExceptionInput {
+  condition: string;
+  override: string;
+}
+
 export interface TrainingProfileInput {
   language: "en" | "fr" | string;
   business_name: string;
@@ -209,6 +214,13 @@ export interface TrainingProfileInput {
   next_step?: string;
   voice_profile?: string;
   knowledge_sources?: string[];
+  // Structured ICP constraints — source of truth for the discovery hard filters.
+  // The prospecting generator copies these verbatim (no LLM reasoning).
+  min_followers?: number | null;
+  markets?: string[];
+  exclude_corporate?: boolean;
+  require_active?: boolean;
+  niche_exceptions?: NicheExceptionInput[];
 }
 
 export interface AvatarGenerateInput {

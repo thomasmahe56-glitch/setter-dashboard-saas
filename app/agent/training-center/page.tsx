@@ -32,6 +32,7 @@ import {
   ChatMessage,
   ConversationSummary,
   KnowledgeExtraction,
+  NicheExceptionInput,
   PromptRefinementResult,
   PromptVersion,
   PromptVersionMemory,
@@ -72,6 +73,11 @@ const EMPTY_PROFILE: TrainingProfileInput = {
   calendly_url: "",
   sales_page_url: "",
   raw_notes: "",
+  min_followers: null,
+  markets: [],
+  exclude_corporate: false,
+  require_active: true,
+  niche_exceptions: [],
 };
 
 const EMPTY_AVATAR_INPUT: AvatarGenerateInput = {
@@ -96,6 +102,25 @@ type BulkAutomationCounts = {
 type AutosaveKey = "profile" | "avatarInput" | "avatar" | "rules";
 type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 type AutosaveState = Record<AutosaveKey, { status: AutosaveStatus; savedAt: number | null }>;
+type ProfileFieldValue = string | string[] | number | null | boolean | NicheExceptionInput[];
+
+function nicheExceptionsToText(exceptions: NicheExceptionInput[]): string {
+  return (exceptions || [])
+    .map((e) => (e.override ? `${e.condition} => ${e.override}` : e.condition))
+    .join("\n");
+}
+
+function textToNicheExceptions(text: string): NicheExceptionInput[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const idx = line.indexOf("=>");
+      if (idx === -1) return { condition: line, override: "" };
+      return { condition: line.slice(0, idx).trim(), override: line.slice(idx + 2).trim() };
+    });
+}
 const PROMPT_REFINEMENT_CHIPS = {
   en: ["Too long", "Too salesy", "Wrong language", "Wrong next step", "Wrong question asked", "Bad question"],
   fr: ["Trop long", "Trop commercial", "Mauvaise langue", "Mauvaise prochaine étape", "Mauvaise question posée", "Question maladroite"],
@@ -593,7 +618,7 @@ export default function TrainingCenterPage() {
     return () => window.clearTimeout(timeout);
   }, [loading, rulesJson, rulesAutosaveSignature, setAutosaveStatus]);
 
-  function updateProfile(key: keyof TrainingProfileInput, value: string | string[]) {
+  function updateProfile(key: keyof TrainingProfileInput, value: ProfileFieldValue) {
     setProfile((current) => ({ ...current, [key]: value }));
   }
 
@@ -1232,7 +1257,7 @@ function BusinessStep({
   autosaveStatus: AutosaveStatus;
   disabled: boolean;
   saving: boolean;
-  onChange: (key: keyof TrainingProfileInput, value: string | string[]) => void;
+  onChange: (key: keyof TrainingProfileInput, value: ProfileFieldValue) => void;
   onRulesChange: (patch: Partial<AgentSalesRules>) => void;
   onSave: () => void;
   t: (key: string, fallback: string) => string;
@@ -1314,6 +1339,46 @@ function BusinessStep({
           placeholder="Example: EUR 1,500 to EUR 3,000, paid once or in 3 installments. Only mention price after qualification."
         />
       </div>
+
+      <details style={styles.details}>
+        <summary style={styles.summary}>{t("training.icpFilters.title", "Ciblage ICP (filtres durs)")}</summary>
+        <div style={styles.advancedGrid}>
+          <label style={styles.label}>
+            {t("training.icpFilters.minFollowers", "Seuil minimum d'abonnés")}
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={profile.min_followers ?? ""}
+              onChange={(event) => {
+                const raw = event.target.value;
+                onChange("min_followers", raw === "" ? null : Math.max(0, Math.floor(Number(raw) || 0)));
+              }}
+              placeholder="8000"
+              style={styles.input}
+            />
+            <span style={styles.icpHint}>
+              {t("training.icpFilters.minFollowersHint", "Laisse vide si aucun seuil. Cette valeur est appliquée de façon déterministe (non contournable par l'IA).")}
+            </span>
+          </label>
+          <label style={styles.icpCheckboxLabel}>
+            <input
+              type="checkbox"
+              checked={!!profile.exclude_corporate}
+              onChange={(event) => onChange("exclude_corporate", event.target.checked)}
+              style={styles.icpCheckbox}
+            />
+            <span>{t("training.icpFilters.excludeCorporate", "Exclure les comptes corporate / agences")}</span>
+          </label>
+          <TextField
+            label={t("training.icpFilters.nicheExceptions", "Exceptions de niche")}
+            value={nicheExceptionsToText(profile.niche_exceptions || [])}
+            rows={3}
+            onChange={(v) => onChange("niche_exceptions", textToNicheExceptions(v))}
+            placeholder="Une exception par ligne : niche => règle alternative (ex. addiction => juger sur engagement/vues)"
+          />
+        </div>
+      </details>
 
       <details style={styles.details}>
         <summary style={styles.summary}>{t("training.advancedFields", "Advanced fields")}</summary>
@@ -3440,6 +3505,26 @@ const styles: Record<string, React.CSSProperties> = {
     gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
     gap: 12,
     marginTop: 14,
+  },
+  icpHint: {
+    color: "#64748b",
+    fontSize: 11,
+    lineHeight: 1.35,
+    fontWeight: 600,
+  },
+  icpCheckboxLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    color: "#475569",
+    fontSize: 12,
+    fontWeight: 750,
+  },
+  icpCheckbox: {
+    width: 16,
+    height: 16,
+    accentColor: "#0095F6",
+    cursor: "pointer",
   },
   promptGrid: {
     display: "grid",

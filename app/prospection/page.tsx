@@ -190,7 +190,7 @@ export default function ProspectionPage() {
         max_runs: Math.max(discoveryTarget, 5),
         max_candidates_total: 200,
         max_duration_seconds: 300,
-        // source vide = le backend résout les 28 queries de la config tenant
+        // source vide = le backend résout les requêtes de la config tenant
         // (keyword discovery → dedup → hard filters → Market Gate FR → Activity Gate → DM).
         sources: [{ source_type: "keyword_search", source_value: "", weight: 1, enabled: true }],
         target_language: "français",
@@ -506,7 +506,7 @@ export default function ProspectionPage() {
                       </div>
                     </div>
                     <p style={{ margin: "12px 0 0", color: "#626b78", fontSize: 13, lineHeight: 1.55, fontWeight: 650 }}>
-                      Angellos cherche et qualifie pour toi : la config validée du Training Center fait foi (28 requêtes, ≥ 8 000 abonnés, marché FR, actifs ≤ 90 j). Tu n’as rien d’autre à régler.
+                      Angellos cherche et qualifie pour toi : la config validée du Training Center fait foi (requêtes calibrées, ≥ 8 000 abonnés, marché FR, actifs ≤ 90 j). Tu n’as rien d’autre à régler.
                     </p>
 
                     {activeCampaign?.status === "running" ? (

@@ -100,9 +100,14 @@ export default function ProspectionPage() {
   const [targetLanguage, setTargetLanguage] = useState("français");
   const [markets, setMarkets] = useState("France, Belgique, Suisse");
   const [nicheDescription, setNicheDescription] = useState("");
-  const [minFollowers, setMinFollowers] = useState(1000);
-  const [maxFollowers, setMaxFollowers] = useState(50000);
+  // Valeurs vides par défaut : la config tenant validée fait foi (min 8000, pas de plafond).
+  const [minFollowers, setMinFollowers] = useState<number | null>(null);
+  const [maxFollowers, setMaxFollowers] = useState<number | null>(null);
   const [sources, setSources] = useState<SourceDraft[]>([DEFAULT_SOURCE]);
+
+  // Chemin principal de la bêta : « Trouver de nouveaux prospects ».
+  const [discoveryTarget, setDiscoveryTarget] = useState(10);
+  const [launching, setLaunching] = useState(false);
 
   const [testUsername, setTestUsername] = useState("coach_test");
   const [testBio, setTestBio] = useState("");
@@ -147,6 +152,65 @@ export default function ProspectionPage() {
     () => campaigns.find((campaign) => campaign.status === "running") || campaigns[0] || null,
     [campaigns],
   );
+
+  // Polling léger pendant un run : on suit la progression sans recharger tout l'écran.
+  const pollProgress = useCallback(async () => {
+    try {
+      const [campaignData, prospectData] = await Promise.all([
+        api.prospecting.getCampaigns(),
+        api.prospecting.getProspects(40),
+      ]);
+      setCampaigns(campaignData.items || []);
+      setProspects(prospectData.items || []);
+    } catch {
+      // Erreur transitoire : on réessaiera au prochain tick.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!activeCampaign || activeCampaign.status !== "running") return;
+    const interval = setInterval(() => {
+      void pollProgress();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [activeCampaign?.status, pollProgress]);
+
+  async function handleLaunchDiscovery() {
+    if (launching) return;
+    if (activeCampaign?.status === "running") {
+      setNotice({ kind: "error", text: "Une discovery est déjà en cours. Attends qu’elle se termine." });
+      return;
+    }
+    setLaunching(true);
+    setNotice(null);
+    try {
+      const payload: ProspectingCampaignInput = {
+        name: `Discovery ${new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" }).format(new Date())}`,
+        target_leads: discoveryTarget,
+        max_runs: Math.max(discoveryTarget, 5),
+        max_candidates_total: 200,
+        max_duration_seconds: 300,
+        // source vide = le backend résout les 28 queries de la config tenant
+        // (keyword discovery → dedup → hard filters → Market Gate FR → Activity Gate → DM).
+        sources: [{ source_type: "keyword_search", source_value: "", weight: 1, enabled: true }],
+        target_language: "français",
+        target_markets: ["France", "Belgique", "Suisse", "Canada francophone"],
+        niche_description: null,
+        // null = la config tenant validée fait foi (min 8000, pas de plafond).
+        min_followers: null,
+        max_followers: null,
+      };
+      const campaign = await api.prospecting.createCampaign(payload);
+      setCampaigns((current) => [campaign, ...current.filter((item) => item.id !== campaign.id)]);
+      await api.prospecting.runCampaign(campaign.id);
+      setNotice({ kind: "success", text: "Discovery lancée. Angellos cherche et qualifie en arrière-plan." });
+      await pollProgress();
+    } catch (error) {
+      setNotice({ kind: "error", text: error instanceof Error ? error.message : "Impossible de lancer la discovery." });
+    } finally {
+      setLaunching(false);
+    }
+  }
 
   const contextReady = Boolean(context?.is_complete);
   const missingFields = context?.missing_fields || [];
@@ -431,6 +495,52 @@ export default function ProspectionPage() {
 
               <div className="prospection-layout" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.2fr) minmax(320px, 0.8fr)", gap: 16, alignItems: "start" }}>
                 <div style={{ display: "grid", gap: 16 }}>
+                  <section style={{ ...card, borderColor: "#c7e2ff", background: "linear-gradient(180deg, #f4faff 0%, #ffffff 100%)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+                      <div style={{ width: 46, height: 46, borderRadius: 14, display: "grid", placeItems: "center", background: "#0095F6", color: "#fff" }}>
+                        <Sparkles size={22} />
+                      </div>
+                      <div>
+                        <p style={{ color: "#0077c8", fontSize: 11, fontWeight: 850, textTransform: "uppercase", margin: "0 0 4px" }}>Discovery V2</p>
+                        <h2 style={{ color: "#0a0a0a", fontSize: 21, fontWeight: 850, margin: 0 }}>Trouver de nouveaux prospects</h2>
+                      </div>
+                    </div>
+                    <p style={{ margin: "12px 0 0", color: "#626b78", fontSize: 13, lineHeight: 1.55, fontWeight: 650 }}>
+                      Angellos cherche et qualifie pour toi : la config validée du Training Center fait foi (28 requêtes, ≥ 8 000 abonnés, marché FR, actifs ≤ 90 j). Tu n’as rien d’autre à régler.
+                    </p>
+
+                    {activeCampaign?.status === "running" ? (
+                      <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+                          <ProgressChip label="Profils analysés" value={String(activeCampaign.analyzed_total || 0)} />
+                          <ProgressChip label="Prospects trouvés" value={`${activeCampaign.inserted_total || 0}/${activeCampaign.target_leads || discoveryTarget}`} />
+                          <ProgressChip label="Queries testées" value={`${activeCampaign.runs_count || 0}/${activeCampaign.sources?.length || activeCampaign.max_runs || "-"}`} />
+                          <ProgressChip label="Temps écoulé" value={formatElapsed(activeCampaign.elapsed_seconds)} />
+                        </div>
+                        <p style={{ margin: 0, color: "#0077c8", fontSize: 13, fontWeight: 800 }}>
+                          Discovery en cours — Angellos analyse et qualifie en arrière-plan…
+                        </p>
+                        <div style={{ display: "flex", gap: 10 }}>
+                          <button type="button" onClick={() => handleCancelCampaign(activeCampaign.id)} disabled={cancelingCampaignId === activeCampaign.id} style={dangerButton(cancelingCampaignId === activeCampaign.id)}>
+                            {cancelingCampaignId === activeCampaign.id ? <Loader2 size={16} className="animate-spin" /> : <AlertCircle size={16} />}
+                            Annuler la discovery
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 12, alignItems: "end", marginTop: 16 }}>
+                        <label style={labelStyle}>
+                          Nombre souhaité
+                          <input style={{ ...inputStyle, fontSize: 16 }} type="number" min={1} max={50} value={discoveryTarget} onChange={(e) => setDiscoveryTarget(Math.max(1, Math.min(50, Number(e.target.value) || 1)))} />
+                        </label>
+                        <button type="button" onClick={handleLaunchDiscovery} disabled={launching} style={primaryButton(launching)}>
+                          {launching ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+                          Lancer Discovery
+                        </button>
+                      </div>
+                    )}
+                  </section>
+
                   <section style={{ ...card, borderColor: contextReady ? "#b7e4c7" : "#ffd6a5", background: contextReady ? "#f8fffb" : "#fffaf0" }}>
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
                       <div>
@@ -459,6 +569,12 @@ export default function ProspectionPage() {
                     )}
                   </section>
 
+                  <details style={card}>
+                    <summary style={{ cursor: "pointer", fontSize: 14, fontWeight: 850, color: "#111827", listStyle: "none", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                      <span>Paramètres avancés</span>
+                      <span style={{ color: "#7b8491", fontSize: 12, fontWeight: 650 }}>Sources manuelles · test de bio — non requis pour la bêta</span>
+                    </summary>
+                    <div style={{ display: "grid", gap: 16, marginTop: 16 }}>
                   <section style={card}>
                     <SectionTitle icon={Sparkles} eyebrow="1. Trouver les meilleures sources" title="Source Discovery Angellos" />
                     <p style={{ margin: "12px 0 0", color: "#626b78", fontSize: 13, lineHeight: 1.55, fontWeight: 650 }}>
@@ -539,8 +655,8 @@ export default function ProspectionPage() {
                       <label style={labelStyle}>Prospects cible<input style={inputStyle} type="number" min={1} max={50} value={targetLeads} onChange={(e) => setTargetLeads(Number(e.target.value))} /></label>
                       <label style={labelStyle}>Runs maximum<input style={inputStyle} type="number" min={1} max={50} value={maxRuns} onChange={(e) => setMaxRuns(Number(e.target.value))} /></label>
                       <label style={labelStyle}>Candidats maximum<input style={inputStyle} type="number" min={50} max={2000} value={maxCandidates} onChange={(e) => setMaxCandidates(Number(e.target.value))} /></label>
-                      <label style={labelStyle}>Followers minimum<input style={inputStyle} type="number" min={0} value={minFollowers} onChange={(e) => setMinFollowers(Number(e.target.value))} /></label>
-                      <label style={labelStyle}>Followers maximum<input style={inputStyle} type="number" min={0} value={maxFollowers} onChange={(e) => setMaxFollowers(Number(e.target.value))} /></label>
+                      <label style={labelStyle}>Followers minimum (vide = config tenant)<input style={inputStyle} type="number" min={0} value={minFollowers ?? ""} onChange={(e) => setMinFollowers(e.target.value === "" ? null : Number(e.target.value))} /></label>
+                      <label style={labelStyle}>Followers maximum (vide = config tenant)<input style={inputStyle} type="number" min={0} value={maxFollowers ?? ""} onChange={(e) => setMaxFollowers(e.target.value === "" ? null : Number(e.target.value))} /></label>
                       <label style={{ ...labelStyle, gridColumn: "1 / -1" }}>Marchés ciblés<input style={inputStyle} value={markets} onChange={(e) => setMarkets(e.target.value)} placeholder="France, Belgique, Suisse" /></label>
                       <label style={{ ...labelStyle, gridColumn: "1 / -1" }}>Angle / exclusion simple<textarea style={{ ...inputStyle, minHeight: 74, resize: "vertical" }} value={nicheDescription} onChange={(e) => setNicheDescription(e.target.value)} placeholder="Optionnel : précision de niche ou profils à éviter." /></label>
                     </div>
@@ -584,6 +700,8 @@ export default function ProspectionPage() {
                       )}
                     </div>
                   </section>
+                    </div>
+                  </details>
 
                   <section style={card}>
                     <SectionTitle icon={Search} eyebrow="Prospects" title="Liste qualifiée" />
@@ -742,6 +860,8 @@ function sourceTypeLabel(sourceType: ProspectingSourceInput["source_type"]) {
     followers: "Followers",
     following: "Following",
     commenters: "Commentateurs",
+    keyword_search: "Recherche (requête)",
+    following_overlap: "Overlap",
   }[sourceType];
 }
 

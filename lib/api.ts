@@ -425,7 +425,7 @@ export interface ProspectingContext {
 }
 
 export interface ProspectingSourceInput {
-  source_type: "followers" | "following" | "commenters";
+  source_type: "followers" | "following" | "commenters" | "keyword_search" | "following_overlap";
   source_value: string;
   weight?: number;
   enabled?: boolean;
